@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>See: C89, step by step, down to the byte</title>
+<meta name="description" content="See is a C89 workbench in the browser: write, build and run C, then step through it and watch the stack, the heap and every byte change.">
+<meta name="theme-color" content="#9ea3b5">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%235b6a8c'/%3E%3Crect x='0' y='0' width='16' height='1' fill='%23c9d1e6'/%3E%3Crect x='0' y='0' width='1' height='16' fill='%23c9d1e6'/%3E%3Cpath d='M11 4.5H6.5a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2H11' stroke='%23ffffff' stroke-width='2' fill='none'/%3E%3C/svg%3E">
+<style>
+/*@@CSS@@*/
+</style>
+</head>
+<body>
+<div id="app" class="app">
+  <header class="titlebar" id="titlebar">
+    <div class="tb-left">
+      <span class="logo" aria-hidden="true">C</span>
+      <span class="appname">See</span>
+      <span class="doc-title" id="docTitle"></span>
+    </div>
+    <div class="tb-right">
+      <button class="ibtn" id="btnTheme" type="button" title="Light or dark" aria-label="Light or dark"></button>
+      <button class="ibtn" id="btnHelpTop" type="button" title="Help" aria-label="Help"></button>
+    </div>
+  </header>
+  <nav class="menubar" id="menubar" role="menubar" aria-label="Menu"></nav>
+  <div class="toolbar" id="toolbar" role="toolbar" aria-label="Tools"></div>
+  <main class="work" id="work">
+    <aside class="side" id="side" aria-label="Files">
+      <div class="pane-head"><span class="pane-title" id="sideTitle">Files</span><span class="pane-tools" id="sideTools"></span></div>
+      <div class="pane-body" id="sideBody"></div>
+    </aside>
+    <div class="split v" id="splitSide" role="separator" aria-orientation="vertical" aria-label="Resize files"></div>
+    <section class="center" id="center">
+      <div class="tabs" id="tabs" role="tablist" aria-label="Open files"></div>
+      <div class="editors" id="editors"></div>
+      <div class="split h" id="splitBottom" role="separator" aria-orientation="horizontal" aria-label="Resize terminal"></div>
+      <div class="bottom" id="bottom">
+        <div class="ptabs" id="bottomTabs" role="tablist" aria-label="Output"></div>
+        <div class="pbody" id="bottomBody"></div>
+      </div>
+    </section>
+    <div class="split v" id="splitRight" role="separator" aria-orientation="vertical" aria-label="Resize debugger"></div>
+    <aside class="right" id="right" aria-label="Memory and debugger">
+      <div class="ptabs" id="rightTabs" role="tablist" aria-label="Debugger"></div>
+      <div class="pbody" id="rightBody"></div>
+    </aside>
+  </main>
+  <nav class="mobilebar" id="mobilebar" aria-label="Views"></nav>
+  <footer class="statusbar" id="statusbar">
+    <span class="st-state" id="stState">Ready</span>
+    <span class="st-msg" id="statusMsg"></span>
+    <span class="st-pos" id="stPos"></span>
+  </footer>
+</div>
+<div id="overlay-root"></div>
+<script>
+//@@JS@@
+</script>
+</body>
+</html>

@@ -1,0 +1,45 @@
+{
+  "core": [
+    "core/util.js",
+    "core/vfs.js",
+    "c/lexer.js",
+    "c/cpp.js",
+    "c/types.js",
+    "c/parser.js",
+    "c/codegen.js",
+    "c/memory.js",
+    "c/linker.js",
+    "c/vm.js",
+    "c/libc.js",
+    "c/headers.js",
+    "c/build.js",
+    "c/debug.js"
+  ],
+  "ide": [
+    "ide/ui.js",
+    "ide/editor.js",
+    "ide/highlight.js",
+    "ide/zip.js",
+    "ide/share.js",
+    "ide/terminal.js",
+    "ide/panels.js",
+    "ide/memview.js",
+    "ide/callout.js",
+    "ide/files.js",
+    "ide/samples-data.js",
+    "ide/samples.js",
+    "ide/ref/*.js",
+    "ide/help.js",
+    "ide/lessons.js",
+    "ide/lessons/*.js",
+    "ide/tours.js",
+    "ide/tours/*.js",
+    "ide/library-data.js",
+    "ide/library.js",
+    "ide/author.js",
+    "ide/app.js"
+  ],
+  "css": [
+    "ide/styles.css"
+  ]
+}
