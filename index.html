@@ -12340,6 +12340,1130 @@ int main(void)
   },
 });
 
+// ==== ide/ref/stdlib.js ====
+// Reference texts for <stdlib.h>.
+SEE.RefText = Object.assign(SEE.RefText || {}, {
+  div_t: {
+    header: 'stdlib.h',
+    kind: 'type',
+    sig: 'typedef struct { int quot; int rem; } div_t;',
+    text: `The structure returned by div: quot holds the quotient and rem the remainder of an int division. The order of the two members is not fixed by the standard, so use the names, never a position.`,
+    example: `#include <stdio.h>
+#include <stdlib.h>
+
+int main(void)
+{
+    div_t r;
+
+    r = div(17, 5);
+    printf("17 = 5 * %d + %d\\n", r.quot, r.rem);
+    return 0;
+}
+`,
+    see: ['div', 'ldiv_t', 'ldiv'],
+  },
+  ldiv_t: {
+    header: 'stdlib.h',
+    kind: 'type',
+    sig: 'typedef struct { long quot; long rem; } ldiv_t;',
+    text: `The structure returned by ldiv: quot holds the quotient and rem the remainder of a long division, just like div_t does for int.`,
+    example: `#include <stdio.h>
+#include <stdlib.h>
+
+int main(void)
+{
+    ldiv_t r;
+
+    r = ldiv(1000000L, 7L);
+    printf("quot %ld rem %ld\\n", r.quot, r.rem);
+    return 0;
+}
+`,
+    see: ['ldiv', 'div_t'],
+  },
+  wchar_t: {
+    text: `An integer type big enough to hold any character code of the largest character set the system supports. A wide character constant such as L'x' has this type, and a wide string literal L"abc" is an array of it.\n\nHere wchar_t is long (4 bytes). Only the "C" locale exists in See, where every character is one byte, so the multibyte functions (mbtowc, mbstowcs and the rest) simply copy bytes to wchar_t values and back. The type is also defined in stddef.h.`,
+    example: `#include <stdio.h>
+#include <stdlib.h>
+
+int main(void)
+{
+    wchar_t w[8];
+    size_t n;
+
+    n = mbstowcs(w, "hey", 8);
+    printf("%d wide characters, first %ld, size %d bytes each\\n", (int)n, (long)w[0], (int)sizeof(wchar_t));
+    return 0;
+}
+`,
+    see: ['mbtowc', 'mbstowcs', 'MB_CUR_MAX'],
+  },
+  EXIT_SUCCESS: {
+    text: `The status to pass to exit, or return from main, to report that the program succeeded. Here it is 0, and exit(0) means the same thing.\n\nThe shell, a script or a build tool that ran the program sees this status. See shows it in the terminal when the program ends.`,
+    example: `#include <stdio.h>
+#include <stdlib.h>
+
+int main(void)
+{
+    printf("all done\\n");
+    return EXIT_SUCCESS;
+}
+`,
+    see: ['EXIT_FAILURE', 'exit'],
+  },
+  EXIT_FAILURE: {
+    text: `The status to pass to exit, or return from main, to report that the program failed. Here it is 1. Any non-zero status means failure to most shells, but EXIT_FAILURE is the portable spelling.\n\nA typical use is giving up when a file cannot be opened or memory cannot be allocated, after printing a message to stderr.`,
+    example: `#include <stdio.h>
+#include <stdlib.h>
+
+int main(void)
+{
+    FILE *fp;
+
+    fp = fopen("/no/such/file.txt", "r");
+    if (fp == NULL) {
+        printf("cannot open the file, exiting with %d\\n", EXIT_FAILURE);
+        return EXIT_FAILURE;
+    }
+    fclose(fp);
+    return EXIT_SUCCESS;
+}
+`,
+    see: ['EXIT_SUCCESS', 'exit', 'abort'],
+  },
+  RAND_MAX: {
+    text: `The largest value rand can return. The standard only promises at least 32767, which is exactly its value here, so rand gives numbers from 0 to 32767.\n\nTo get a double between 0 and 1, divide: rand() / (RAND_MAX + 1.0). Use 1.0 so the division is done in floating point; rand() / RAND_MAX in int arithmetic is almost always 0.`,
+    example: `#include <stdio.h>
+#include <stdlib.h>
+
+int main(void)
+{
+    double x;
+
+    srand(7);
+    x = rand() / (RAND_MAX + 1.0);
+    printf("RAND_MAX is %d, x = %f\\n", RAND_MAX, x);
+    return 0;
+}
+`,
+    see: ['rand', 'srand'],
+  },
+  MB_CUR_MAX: {
+    text: `The largest number of bytes one multibyte character can take in the current locale. It is an expression, not necessarily a constant, because it can change with setlocale. In See only the "C" locale exists and every character is one byte, so MB_CUR_MAX is 1.\n\nArrays that receive a character from wctomb must have room for MB_CUR_MAX bytes; MB_LEN_MAX in limits.h is the largest value it can have for any locale.`,
+    example: `#include <stdio.h>
+#include <stdlib.h>
+
+int main(void)
+{
+    printf("a character takes at most %d byte(s) here\\n", (int)MB_CUR_MAX);
+    return 0;
+}
+`,
+    see: ['mblen', 'wctomb', 'MB_LEN_MAX'],
+  },
+  atof: {
+    text: `Converts the beginning of the string nptr to a double, like strtod(nptr, NULL). Leading white space is skipped, then an optional sign, digits with an optional decimal point, and an optional exponent such as e-3 are read; the rest of the string is ignored.\n\natof gives no way to detect errors: "abc" and "0" both give 0.0, and an out-of-range value is undefined behavior. Use strtod when the input comes from a user or a file.`,
+    example: `#include <stdio.h>
+#include <stdlib.h>
+
+int main(void)
+{
+    printf("%g\\n", atof("  3.75 kg"));
+    printf("%g\\n", atof("-1.5e3"));
+    printf("%g\\n", atof("abc"));
+    return 0;
+}
+`,
+    see: ['strtod', 'atoi', 'sscanf'],
+  },
+  atoi: {
+    text: `Converts the beginning of the string nptr to an int: it skips leading white space, reads an optional + or - and then decimal digits, and stops at the first character that is not a digit. "42abc" gives 42.\n\nIt cannot report failure: "abc" gives 0, the same as "0", and a number too big for an int is undefined behavior (See gives INT_MAX or INT_MIN). For input you do not control, use strtol, which tells you where the number ended and sets errno to ERANGE on overflow.`,
+    example: `#include <stdio.h>
+#include <stdlib.h>
+
+int main(void)
+{
+    printf("%d\\n", atoi("42"));
+    printf("%d\\n", atoi("   -17 apples"));
+    printf("%d\\n", atoi("apples"));
+    return 0;
+}
+`,
+    see: ['strtol', 'atol', 'atof'],
+  },
+  atol: {
+    text: `Converts the beginning of the string nptr to a long, exactly like atoi does for int. Here long and int are both 32 bits, so the results are the same. As with atoi, errors cannot be detected; prefer strtol.`,
+    example: `#include <stdio.h>
+#include <stdlib.h>
+
+int main(void)
+{
+    long n;
+
+    n = atol("2000000000");
+    printf("%ld\\n", n);
+    return 0;
+}
+`,
+    see: ['atoi', 'strtol'],
+  },
+  strtod: {
+    text: `Converts the beginning of the string nptr to a double. It skips leading white space and reads an optional sign, then digits with an optional decimal point and an optional exponent (e or E, an optional sign and digits). If endptr is not NULL, *endptr is set to point at the first character after the number.\n\nIf no number could be read, it returns 0 and sets *endptr to nptr, which is how you detect "no number here": compare the end pointer with the start. If the value is too large, it returns plus or minus HUGE_VAL and sets errno to ERANGE; if it is too small, it returns 0 and may set ERANGE.\n\nCalling strtod repeatedly, each time from the previous end pointer, reads a whole list of numbers out of one string.`,
+    example: `#include <stdio.h>
+#include <stdlib.h>
+
+int main(void)
+{
+    const char *s = "1.5 -2.25e1 x";
+    char *end;
+    double v;
+
+    for (;;) {
+        v = strtod(s, &end);
+        if (end == s)
+            break;
+        printf("read %g\\n", v);
+        s = end;
+    }
+    printf("stopped at \\"%s\\"\\n", s);
+    return 0;
+}
+`,
+    see: ['atof', 'strtol', 'HUGE_VAL', 'errno'],
+  },
+  strtol: {
+    text: `Converts the beginning of the string nptr to a long in the given base and, if endptr is not NULL, stores in *endptr a pointer to the first character it did not use. Leading white space is skipped and an optional sign is read.\n\nbase can be 2 to 36, where the letters a to z (or A to Z) are the digits 10 to 35, and 16 also accepts a leading 0x. With base 0 the number decides: 0x1F is hexadecimal, 017 is octal and 17 is decimal.\n\nTo check the result properly: set errno = 0 before the call; if *endptr equals nptr no digits were found; if errno is ERANGE the value overflowed and LONG_MAX or LONG_MIN was returned; if **endptr is not '\\0' there was text after the number. Use it instead of atoi when the input might not be a number.`,
+    example: `#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+
+int main(void)
+{
+    const char *inputs[4] = { "123", "0x1F", "12abc", "99999999999" };
+    char *end;
+    long v;
+    int i;
+
+    for (i = 0; i < 4; i++) {
+        errno = 0;
+        v = strtol(inputs[i], &end, 0);
+        if (end == inputs[i])
+            printf("%-12s no number\\n", inputs[i]);
+        else if (errno == ERANGE)
+            printf("%-12s out of range (got %ld)\\n", inputs[i], v);
+        else
+            printf("%-12s %ld, rest \\"%s\\"\\n", inputs[i], v, end);
+    }
+    return 0;
+}
+`,
+    see: ['strtoul', 'atoi', 'strtod', 'errno'],
+  },
+  strtoul: {
+    text: `Converts the beginning of the string nptr to an unsigned long, with the same rules for white space, base and endptr as strtol. On overflow it returns ULONG_MAX and sets errno to ERANGE.\n\nA trap: a leading minus sign is accepted, and the value is negated in unsigned arithmetic, so strtoul("-1", NULL, 10) returns ULONG_MAX (4294967295) without any error. Check for a '-' yourself if negative input should be rejected.`,
+    example: `#include <stdio.h>
+#include <stdlib.h>
+
+int main(void)
+{
+    printf("%lu\\n", strtoul("ff", NULL, 16));
+    printf("%lu\\n", strtoul("101101", NULL, 2));
+    printf("%lu\\n", strtoul("-1", NULL, 10));
+    return 0;
+}
+`,
+    see: ['strtol', 'ULONG_MAX'],
+  },
+  rand: {
+    text: `Returns a pseudo-random int from 0 to RAND_MAX (32767). The numbers come from a formula applied to a hidden seed, so the sequence is the same every run unless you call srand first with a different seed; without srand, the seed is 1.\n\nTo get a number from 0 to n - 1, rand() % n is the common idiom; it is slightly uneven when n does not divide RAND_MAX + 1 and fine for games and exercises. For a value from lo to hi: lo + rand() % (hi - lo + 1).\n\nSee uses the sample generator printed in the C standard, a simple linear congruential formula. It is not suitable for anything that needs real unpredictability, such as passwords.`,
+    example: `#include <stdio.h>
+#include <stdlib.h>
+
+int main(void)
+{
+    int i;
+
+    srand(2024);
+    for (i = 0; i < 5; i++)
+        printf("die roll: %d\\n", 1 + rand() % 6);
+    return 0;
+}
+`,
+    see: ['srand', 'RAND_MAX', 'time'],
+  },
+  srand: {
+    text: `Sets the seed for rand. The same seed always gives the same sequence, which is useful for testing; a program starts as if srand(1) had been called.\n\nTo get a different sequence on each run, seed with the time once at the start: srand((unsigned)time(NULL)). Call srand only once; calling it before every rand with the time gives the same number again and again within the same second.`,
+    example: `#include <stdio.h>
+#include <stdlib.h>
+
+int main(void)
+{
+    int a, b;
+
+    srand(42);
+    a = rand();
+    srand(42);
+    b = rand();
+    printf("same seed, same number: %d %d\\n", a, b);
+    return 0;
+}
+`,
+    see: ['rand', 'time'],
+  },
+  calloc: {
+    text: `Allocates memory for an array of nmemb elements of size bytes each, sets every byte to zero, and returns a pointer to it, or NULL if there is not enough memory (errno is then ENOMEM). The memory is released with free.\n\nCompared with malloc(nmemb * size), calloc clears the memory and checks that the multiplication does not overflow. All-bits-zero is 0 for integer types; on this machine it is also 0.0 and NULL, although C does not promise that everywhere.\n\nIn See's memory picture a calloc block shows as initialized from the start, while a malloc block shows as uninitialized until you write to it.`,
+    example: `#include <stdio.h>
+#include <stdlib.h>
+
+int main(void)
+{
+    int *counts;
+    int i;
+
+    counts = calloc(5, sizeof *counts);
+    if (counts == NULL)
+        return EXIT_FAILURE;
+    counts[2] = 7;
+    for (i = 0; i < 5; i++)
+        printf("%d ", counts[i]);
+    printf("\\n");
+    free(counts);
+    return 0;
+}
+`,
+    see: ['malloc', 'free', 'realloc', 'memset'],
+  },
+  free: {
+    text: `Releases a block of memory that came from malloc, calloc or realloc, so it can be used again. free(NULL) is allowed and does nothing.\n\nAfter free, the pointer still holds the old address but must not be used: reading or writing through it, or freeing it a second time, is undefined behavior. See catches all of these: a double free, freeing a pointer into the middle of a block, freeing a stack address, and any use of the freed block, which the memory picture shows as freed. Setting the pointer to NULL right after free makes accidental reuse easier to spot.\n\nEvery block should be freed exactly once when it is no longer needed. Blocks still allocated when the program ends are leaks; See lists them at exit.`,
+    example: `#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+int main(void)
+{
+    char *s;
+
+    s = malloc(16);
+    if (s == NULL)
+        return EXIT_FAILURE;
+    strcpy(s, "temporary");
+    printf("%s\\n", s);
+    free(s);
+    s = NULL;
+    free(s);   /* free(NULL) does nothing */
+    printf("freed\\n");
+    return 0;
+}
+`,
+    see: ['malloc', 'calloc', 'realloc'],
+  },
+  malloc: {
+    text: `Allocates a block of size bytes and returns a pointer to its first byte, or NULL if the memory cannot be found (errno is then ENOMEM). The block stays allocated until you pass the pointer to free; it does not disappear when the function that called malloc returns.\n\nThe contents are not initialized: they hold whatever was there before. See marks the new bytes as uninitialized and warns when you read one before writing it. Use calloc for zeroed memory.\n\nAsk for bytes, not elements: malloc(n * sizeof *p) for n elements of whatever p points to. Always check the result against NULL. In C there is no need to cast the result, since a void * converts to any object pointer; the cast can hide a missing #include <stdlib.h>.\n\nIn See's memory picture each block sits on the heap with an 8-byte header in front of it holding its size, and guard bytes after it, so writing even one byte past the end is caught at once.`,
+    example: `#include <stdio.h>
+#include <stdlib.h>
+
+int main(void)
+{
+    int *a;
+    int n = 5, i;
+
+    a = malloc(n * sizeof *a);
+    if (a == NULL) {
+        printf("out of memory\\n");
+        return EXIT_FAILURE;
+    }
+    for (i = 0; i < n; i++)
+        a[i] = i * i;
+    for (i = 0; i < n; i++)
+        printf("%d ", a[i]);
+    printf("\\n");
+    free(a);
+    return 0;
+}
+`,
+    see: ['calloc', 'realloc', 'free', 'sizeof'],
+  },
+  realloc: {
+    text: `Changes the size of the block at ptr to size bytes and returns a pointer to the resized block. The old contents are kept up to the smaller of the two sizes; any new bytes are uninitialized. The block may move: if it cannot grow where it is, realloc allocates a new one, copies the data and frees the old one, so all old pointers into it become invalid.\n\nIf it fails, it returns NULL and the old block is untouched and still yours. So never write p = realloc(p, n): on failure that loses the only pointer to the old block. Use a second variable and assign it back only on success.\n\nrealloc(NULL, size) acts like malloc(size). realloc(ptr, 0) frees the block here and returns NULL. Growing an array by doubling its capacity each time keeps the number of copies small.`,
+    example: `#include <stdio.h>
+#include <stdlib.h>
+
+int main(void)
+{
+    int *a = NULL, *bigger;
+    int cap = 0, n = 0, i;
+
+    for (i = 1; i <= 10; i++) {
+        if (n == cap) {
+            cap = cap ? cap * 2 : 2;
+            bigger = realloc(a, cap * sizeof *a);
+            if (bigger == NULL) {
+                free(a);
+                return EXIT_FAILURE;
+            }
+            a = bigger;
+            printf("capacity now %d\\n", cap);
+        }
+        a[n++] = i * 10;
+    }
+    printf("last element %d of %d\\n", a[n - 1], n);
+    free(a);
+    return 0;
+}
+`,
+    see: ['malloc', 'free', 'calloc'],
+  },
+  abort: {
+    text: `Ends the program abnormally, at once, by raising the signal SIGABRT. Functions registered with atexit do not run, and output still waiting in buffers may be lost; the status reported to the system means failure.\n\nIf a handler for SIGABRT has been installed with signal, it runs first; if it returns, the program still ends. assert calls abort when its condition is false. See shows where abort was called.`,
+    example: `#include <stdio.h>
+#include <stdlib.h>
+#include <signal.h>
+
+static void on_abort(int sig)
+{
+    printf("caught signal %d, leaving through exit\\n", sig);
+    exit(EXIT_FAILURE);
+}
+
+int main(void)
+{
+    signal(SIGABRT, on_abort);
+    printf("something went badly wrong\\n");
+    abort();
+    printf("never printed\\n");
+    return 0;
+}
+`,
+    see: ['exit', 'assert', 'raise', 'signal', 'SIGABRT'],
+  },
+  atexit: {
+    text: `Registers the function func to be called when the program ends normally, by exit or by returning from main. It returns 0 on success and non-zero if the function could not be registered; at least 32 registrations are possible (exactly 32 here).\n\nThe functions run in the reverse order of registration, before the open streams are flushed and closed, so they may still print. They do not run after abort or when the program is stopped by a signal. A registered function takes no arguments and returns nothing.`,
+    example: `#include <stdio.h>
+#include <stdlib.h>
+
+static void first(void) { printf("registered first, runs last\\n"); }
+static void second(void) { printf("registered second, runs first\\n"); }
+
+int main(void)
+{
+    atexit(first);
+    atexit(second);
+    printf("main is returning\\n");
+    return 0;
+}
+`,
+    see: ['exit', 'abort'],
+  },
+  exit: {
+    text: `Ends the program normally with the given status, from anywhere in the program. First the functions registered with atexit run, in reverse order; then all open streams are flushed and closed; then the status goes back to the system. exit never returns.\n\nUse EXIT_SUCCESS (or 0) for success and EXIT_FAILURE for failure. Returning a value from main is the same as calling exit with it.\n\nOutput still in a buffer is written by exit, but not by abort or a crash, which is why a crashing program can seem to lose its last printf lines. Memory from malloc is reclaimed by the system anyway, though See still lists blocks you never freed.`,
+    example: `#include <stdio.h>
+#include <stdlib.h>
+
+static void check(int ok)
+{
+    if (!ok) {
+        printf("check failed, stopping\\n");
+        exit(EXIT_FAILURE);
+    }
+    printf("check passed\\n");
+}
+
+int main(void)
+{
+    check(1);
+    check(0);
+    printf("never printed\\n");
+    return 0;
+}
+`,
+    see: ['EXIT_SUCCESS', 'EXIT_FAILURE', 'atexit', 'abort'],
+  },
+  getenv: {
+    text: `Looks up the environment variable called name and returns a pointer to its value, or NULL if there is no such variable. The environment is the list of NAME=value strings the program receives when it starts.\n\nThe returned string belongs to the environment: do not modify it, and copy it if you need to keep it, because a later getenv may reuse the space. See gives programs a small environment with HOME, PATH and USER.`,
+    example: `#include <stdio.h>
+#include <stdlib.h>
+
+int main(void)
+{
+    const char *home, *missing;
+
+    home = getenv("HOME");
+    missing = getenv("NO_SUCH_VARIABLE");
+    printf("HOME = %s\\n", home ? home : "(not set)");
+    printf("NO_SUCH_VARIABLE = %s\\n", missing ? missing : "(not set)");
+    return 0;
+}
+`,
+    see: ['system'],
+  },
+  system: {
+    text: `Passes the string to the system's command processor (the shell) to run as a command, and returns a value that depends on the system, usually the command's exit status. system(NULL) asks whether a command processor exists: non-zero means yes.\n\nSee has no shell for programs to call, so system(NULL) returns 0 and any command returns -1. Programs that build a command from user input are a classic security hole on real systems, because the input can contain extra commands.`,
+    example: `#include <stdio.h>
+#include <stdlib.h>
+
+int main(void)
+{
+    if (system(NULL))
+        printf("a shell is available\\n");
+    else
+        printf("no shell here; system(\\"ls\\") returns %d\\n", system("ls"));
+    return 0;
+}
+`,
+    see: ['getenv', 'exit'],
+  },
+  bsearch: {
+    text: `Searches a sorted array for an element that matches *key. base points at the first of nmemb elements of size bytes each, and compar compares the key (first argument) with an array element (second argument), returning negative, zero or positive like strcmp. bsearch returns a pointer to a matching element, or NULL if there is none.\n\nThe array must be sorted in the order compar describes, usually by qsort with the same comparison; otherwise the answer is meaningless. Binary search halves the range at each step, so a million elements take about 20 comparisons. If several elements match, any one of them may be returned.\n\nThe comparison function receives const void pointers: convert them to the real element type inside it.`,
+    example: `#include <stdio.h>
+#include <stdlib.h>
+
+static int cmp_int(const void *a, const void *b)
+{
+    int x = *(const int *)a, y = *(const int *)b;
+    return (x > y) - (x < y);
+}
+
+int main(void)
+{
+    int a[8] = { 2, 3, 5, 7, 11, 13, 17, 19 };
+    int key = 13, other = 4;
+    int *p;
+
+    p = bsearch(&key, a, 8, sizeof a[0], cmp_int);
+    if (p != NULL)
+        printf("%d found at index %d\\n", key, (int)(p - a));
+    p = bsearch(&other, a, 8, sizeof a[0], cmp_int);
+    printf("%d %s\\n", other, p ? "found" : "not found");
+    return 0;
+}
+`,
+    see: ['qsort', 'strcmp'],
+  },
+  qsort: {
+    text: `Sorts an array in place. base points at the first of nmemb elements, each size bytes, and compar is a function that compares two elements through const void pointers and returns a negative number if the first should come first, 0 if they are equal, and a positive number if the second should come first.\n\nThe comparison function is where mistakes happen. Convert the void pointers to pointers to the element type: for an array of int, *(const int *)a; for an array of char * strings, the elements are pointers, so use strcmp(*(char * const *)a, *(char * const *)b). Avoid return x - y for ints, which overflows for large values; (x > y) - (x < y) is safe.\n\nThe sort is not stable: equal elements may end up in any order. The C standard does not say which algorithm is used; See uses quicksort with insertion sort for small ranges, and the debugger can step through each call of your comparison function.`,
+    example: `#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+static int by_value(const void *a, const void *b)
+{
+    int x = *(const int *)a, y = *(const int *)b;
+    return (x > y) - (x < y);
+}
+
+static int by_name(const void *a, const void *b)
+{
+    return strcmp(*(char * const *)a, *(char * const *)b);
+}
+
+int main(void)
+{
+    int nums[6] = { 42, -7, 19, 0, 88, 3 };
+    char *names[4] = { "dave", "alice", "carol", "bob" };
+    int i;
+
+    qsort(nums, 6, sizeof nums[0], by_value);
+    qsort(names, 4, sizeof names[0], by_name);
+    for (i = 0; i < 6; i++)
+        printf("%d ", nums[i]);
+    printf("\\n");
+    for (i = 0; i < 4; i++)
+        printf("%s ", names[i]);
+    printf("\\n");
+    return 0;
+}
+`,
+    see: ['bsearch', 'strcmp'],
+  },
+  abs: {
+    text: `Returns the absolute value of the int j: j itself if it is zero or positive, -j if it is negative.\n\nThe one trap is INT_MIN: its absolute value does not fit in an int (the range is -2147483648 to 2147483647), so abs(INT_MIN) is undefined; here it gives back INT_MIN. Use labs for long and fabs (in math.h) for double; abs on a double converts it to int first and loses the fraction.`,
+    example: `#include <stdio.h>
+#include <stdlib.h>
+
+int main(void)
+{
+    int a = -42, b = 17;
+
+    printf("abs(%d) = %d\\n", a, abs(a));
+    printf("abs(%d) = %d\\n", b, abs(b));
+    printf("distance = %d\\n", abs(a - b));
+    return 0;
+}
+`,
+    see: ['labs', 'fabs', 'INT_MIN'],
+  },
+  div: {
+    text: `Divides numer by denom and returns both the quotient and the remainder in a div_t structure, in the members quot and rem, so that quot * denom + rem == numer.\n\nIn C89 the direction in which the / operator rounds a negative quotient is up to the implementation, but div always truncates toward zero: div(-7, 2) gives quot -3 and rem -1. That made div the portable choice. Dividing by zero is undefined, as with /.`,
+    example: `#include <stdio.h>
+#include <stdlib.h>
+
+int main(void)
+{
+    div_t r;
+    int seconds = 3725;
+
+    r = div(seconds, 60);
+    printf("%d s = %d min %d s\\n", seconds, r.quot, r.rem);
+    r = div(-7, 2);
+    printf("-7 / 2: quot %d rem %d\\n", r.quot, r.rem);
+    return 0;
+}
+`,
+    see: ['div_t', 'ldiv'],
+  },
+  labs: {
+    text: `Returns the absolute value of the long j. As with abs, the most negative value, LONG_MIN, has no positive counterpart and labs(LONG_MIN) is undefined. Here long is 32 bits, the same as int.`,
+    example: `#include <stdio.h>
+#include <stdlib.h>
+
+int main(void)
+{
+    long balance = -150000L;
+
+    printf("owes %ld\\n", labs(balance));
+    return 0;
+}
+`,
+    see: ['abs', 'fabs'],
+  },
+  ldiv: {
+    text: `Divides numer by denom as longs and returns the quotient and remainder in an ldiv_t structure, members quot and rem. Like div, it always truncates toward zero.`,
+    example: `#include <stdio.h>
+#include <stdlib.h>
+
+int main(void)
+{
+    ldiv_t r;
+
+    r = ldiv(100000L, 24L);
+    printf("%ld days and %ld hours\\n", r.quot, r.rem);
+    return 0;
+}
+`,
+    see: ['ldiv_t', 'div'],
+  },
+  mblen: {
+    text: `Returns the number of bytes that make up the multibyte character at s, looking at no more than n bytes. It returns 0 if s points at the NUL character, and -1 if the bytes do not form a valid character.\n\nIf s is NULL, it reports whether the encoding has shift states (0 means no). In See's "C" locale every character is one byte, so mblen returns 1 for any character other than NUL.`,
+    example: `#include <stdio.h>
+#include <stdlib.h>
+
+int main(void)
+{
+    const char *s = "ok";
+
+    printf("%d %d %d\\n", mblen(s, MB_CUR_MAX), mblen(s + 1, MB_CUR_MAX), mblen(s + 2, MB_CUR_MAX));
+    return 0;
+}
+`,
+    see: ['mbtowc', 'MB_CUR_MAX'],
+  },
+  mbtowc: {
+    text: `Converts the multibyte character at s (looking at no more than n bytes) to a wide character and stores it in *pwc, unless pwc is NULL. It returns the number of bytes used, 0 for the NUL character, or -1 if the bytes are not a valid character.\n\nWith s NULL it reports whether the encoding has shift states. In See's "C" locale each byte is one character, so the wide value is simply the byte value.`,
+    example: `#include <stdio.h>
+#include <stdlib.h>
+
+int main(void)
+{
+    wchar_t w;
+    int used;
+
+    used = mbtowc(&w, "A", 1);
+    printf("used %d byte, value %ld\\n", used, (long)w);
+    return 0;
+}
+`,
+    see: ['wctomb', 'mblen', 'mbstowcs', 'wchar_t'],
+  },
+  wctomb: {
+    text: `Converts the wide character wchar to its multibyte form and stores the bytes in the array s, which must have room for MB_CUR_MAX bytes. It returns the number of bytes stored, or -1 if wchar is not a valid character. No NUL is added.\n\nWith s NULL it reports whether the encoding has shift states. In See's "C" locale a wide character from 0 to 255 becomes one byte, and anything else gives -1.`,
+    example: `#include <stdio.h>
+#include <stdlib.h>
+
+int main(void)
+{
+    char buf[4];
+    int n;
+
+    n = wctomb(buf, 'Z');
+    buf[n] = '\\0';
+    printf("%d byte: %s\\n", n, buf);
+    return 0;
+}
+`,
+    see: ['mbtowc', 'wcstombs', 'MB_CUR_MAX'],
+  },
+  mbstowcs: {
+    text: `Converts the multibyte string s into wide characters in the array pwcs, writing no more than n of them. It stops after converting the terminating NUL, which is then included in the array. It returns the number of wide characters written, not counting the NUL, or (size_t)-1 if an invalid character was found.\n\nIf the string has n or more characters, the result is not terminated. In See's "C" locale each byte becomes one wchar_t.`,
+    example: `#include <stdio.h>
+#include <stdlib.h>
+
+int main(void)
+{
+    wchar_t w[10];
+    size_t n, i;
+
+    n = mbstowcs(w, "wide", 10);
+    for (i = 0; i < n; i++)
+        printf("%ld ", (long)w[i]);
+    printf("(%d characters)\\n", (int)n);
+    return 0;
+}
+`,
+    see: ['wcstombs', 'mbtowc', 'wchar_t'],
+  },
+  wcstombs: {
+    text: `Converts the wide string pwcs into a multibyte string in the array s, storing no more than n bytes. It stops after the terminating NUL, which is stored if there is room. It returns the number of bytes stored, not counting the NUL, or (size_t)-1 if a wide character has no multibyte form.\n\nAs with strncpy, if the result fills all n bytes no NUL is written. In See's "C" locale each wchar_t becomes one byte.`,
+    example: `#include <stdio.h>
+#include <stdlib.h>
+
+int main(void)
+{
+    wchar_t w[4];
+    char s[8];
+    size_t n;
+
+    w[0] = 'h';
+    w[1] = 'e';
+    w[2] = 'y';
+    w[3] = 0;
+    n = wcstombs(s, w, sizeof s);
+    printf("%d bytes: %s\\n", (int)n, s);
+    return 0;
+}
+`,
+    see: ['mbstowcs', 'wctomb', 'wchar_t'],
+  },
+});
+
+// ==== ide/ref/string.js ====
+// Reference texts for <string.h>.
+SEE.RefText = Object.assign(SEE.RefText || {}, {
+  memcpy: {
+    text: `Copies exactly n bytes from the object at s2 to the object at s1 and returns s1. It does not look for a NUL byte and does not stop early: it copies n bytes, whatever they are, so it works for structs, arrays of int and any other data, not only strings.\n\nThe two areas must not overlap. If they might (shifting part of an array along itself, for example), use memmove instead. See warns when it sees memcpy called with overlapping areas, because the result is undefined.\n\nThe destination must have room for n bytes. Pass the size in bytes, which for an array of int is count * sizeof(int), not the count of elements. If the destination is too small, See stops the program at the first byte that falls outside it, and the memory picture shows which object was overrun.`,
+    example: `#include <stdio.h>
+#include <string.h>
+
+struct point { int x; int y; };
+
+int main(void)
+{
+    int a[5] = { 1, 2, 3, 4, 5 };
+    int b[5];
+    struct point p = { 3, 4 }, q;
+    int i;
+
+    memcpy(b, a, sizeof a);
+    memcpy(&q, &p, sizeof q);
+    for (i = 0; i < 5; i++)
+        printf("%d ", b[i]);
+    printf("\\nq = (%d, %d)\\n", q.x, q.y);
+    return 0;
+}
+`,
+    see: ['memmove', 'strcpy', 'memset'],
+  },
+  memmove: {
+    text: `Copies n bytes from s2 to s1 and returns s1, exactly like memcpy, except that the two areas may overlap. The result is as if the n bytes were first copied to a temporary buffer and then to the destination, so nothing is overwritten before it has been read.\n\nUse it to slide elements along inside one array, for example to open a gap for an insertion or to close one after a deletion. When you know the areas are separate, memcpy does the same job.`,
+    example: `#include <stdio.h>
+#include <string.h>
+
+int main(void)
+{
+    char s[16] = "abcdef";
+
+    /* open a gap at index 2 by sliding "cdef" and its NUL one place right */
+    memmove(s + 3, s + 2, strlen(s + 2) + 1);
+    s[2] = 'X';
+    printf("%s\\n", s);
+
+    /* close the gap again */
+    memmove(s + 2, s + 3, strlen(s + 3) + 1);
+    printf("%s\\n", s);
+    return 0;
+}
+`,
+    see: ['memcpy', 'strcpy'],
+  },
+  strcpy: {
+    text: `Copies the string s2, including its terminating NUL, into the array s1, and returns s1. It copies until it reaches the NUL, so it has no idea how big s1 is: the destination must have room for strlen(s2) + 1 characters.\n\nThis is the classic buffer overflow. char name[8]; strcpy(name, "Christopher"); writes 12 bytes into an 8-byte array. In See the program stops at the first byte past the end of name, and the memory picture shows the overflow; on a real machine the extra bytes silently overwrite whatever lives next to the array.\n\nThe areas must not overlap. To copy at most a limited number of characters, see strncpy, which has traps of its own; a common safe pattern is to check strlen(s2) < sizeof dest before calling strcpy.`,
+    example: `#include <stdio.h>
+#include <string.h>
+
+int main(void)
+{
+    char dest[16];
+    const char *src = "hello";
+
+    if (strlen(src) < sizeof dest) {
+        strcpy(dest, src);
+        printf("copied \\"%s\\" (%d bytes with the NUL)\\n", dest, (int)strlen(dest) + 1);
+    }
+    return 0;
+}
+`,
+    see: ['strncpy', 'strcat', 'memcpy', 'strlen'],
+  },
+  strncpy: {
+    text: `Copies at most n characters from s2 into s1 and returns s1. If s2 is shorter than n, the rest of s1 up to n characters is filled with NUL bytes. If s2 has n or more characters, exactly n are copied and no NUL is written.\n\nThat last case is the trap: after strncpy(buf, src, sizeof buf) with a long src, buf is not a string, and printing it or calling strlen on it reads past the end. See warns when strncpy leaves the destination without a NUL. The usual fix is to copy one less and terminate by hand: strncpy(buf, src, sizeof buf - 1); buf[sizeof buf - 1] = '\\0';\n\nstrncpy was designed for fixed-width fields in old file formats, not as a safe strcpy. It also always writes all n bytes, which is wasteful for a large buffer and a short source.`,
+    example: `#include <stdio.h>
+#include <string.h>
+
+int main(void)
+{
+    char buf[6];
+    const char *src = "a long string";
+
+    strncpy(buf, src, sizeof buf - 1);
+    buf[sizeof buf - 1] = '\\0';
+    printf("[%s]\\n", buf);
+
+    strncpy(buf, "hi", sizeof buf);   /* pads the rest with NUL bytes */
+    printf("[%s]\\n", buf);
+    return 0;
+}
+`,
+    see: ['strcpy', 'strncat', 'memcpy'],
+  },
+  strcat: {
+    text: `Appends the string s2 to the end of the string s1: the first character of s2 overwrites the NUL at the end of s1, and a new NUL is written after the copy. It returns s1.\n\ns1 must already hold a string (an uninitialized array is not one: start with buf[0] = '\\0' or strcpy), and it must have room for strlen(s1) + strlen(s2) + 1 characters. Like strcpy, strcat cannot know the size of the destination; an overflow is caught by See at the first byte outside the array.\n\nEach call walks s1 from the start to find its end, so building a long string with many strcat calls is slow. Keeping a pointer to the current end, or using sprintf, avoids that.`,
+    example: `#include <stdio.h>
+#include <string.h>
+
+int main(void)
+{
+    char path[32];
+
+    strcpy(path, "/home");
+    strcat(path, "/");
+    strcat(path, "user");
+    printf("%s (%d characters)\\n", path, (int)strlen(path));
+    return 0;
+}
+`,
+    see: ['strncat', 'strcpy', 'sprintf'],
+  },
+  strncat: {
+    text: `Appends at most n characters of s2 to the string s1 and then always writes a terminating NUL. It returns s1.\n\nUnlike strncpy, the result is always a string. But n limits only the characters taken from s2, not the total size of s1, so the destination needs room for strlen(s1) + n + 1 characters. To fill a buffer safely, pass the space that is left: strncat(buf, s, sizeof buf - strlen(buf) - 1).`,
+    example: `#include <stdio.h>
+#include <string.h>
+
+int main(void)
+{
+    char buf[10] = "abc";
+
+    strncat(buf, "defghijklmnop", sizeof buf - strlen(buf) - 1);
+    printf("[%s] fits in %d bytes\\n", buf, (int)sizeof buf);
+    return 0;
+}
+`,
+    see: ['strcat', 'strncpy'],
+  },
+  memcmp: {
+    text: `Compares the first n bytes of the objects at s1 and s2, byte by byte as unsigned char values. It returns 0 if they are all equal, a negative number if the first differing byte is smaller in s1, and a positive number if it is larger.\n\nIt does not stop at a NUL, so it is for raw data. Avoid using it to compare structs: the padding bytes between members can hold anything, so two structs with equal members may still compare unequal. Compare the members one by one instead.\n\nOnly the sign of the result is meaningful; do not test for -1 or 1.`,
+    example: `#include <stdio.h>
+#include <string.h>
+
+int main(void)
+{
+    unsigned char a[4] = { 1, 2, 3, 4 };
+    unsigned char b[4] = { 1, 2, 9, 4 };
+
+    printf("first 2 bytes: %d\\n", memcmp(a, b, 2));
+    printf("all 4 bytes: %s\\n", memcmp(a, b, 4) < 0 ? "a < b" : "a >= b");
+    return 0;
+}
+`,
+    see: ['strcmp', 'strncmp', 'memchr'],
+  },
+  strcmp: {
+    text: `Compares the strings s1 and s2 character by character, as unsigned char values, until they differ or both end. It returns 0 when the strings are equal, a negative number when s1 sorts before s2, and a positive number when it sorts after.\n\nUse it to compare strings: s1 == s2 compares the pointers (are they the same array?), not the text. Test the result against 0, as in strcmp(a, b) == 0 or strcmp(a, b) < 0, never against 1 or -1.\n\nThe order is by character code, so "Zebra" comes before "apple" (uppercase letters have smaller codes in ASCII) and "10" comes before "9". Both arguments must be NUL-terminated.`,
+    example: `#include <stdio.h>
+#include <string.h>
+
+int main(void)
+{
+    char word[8] = "apple";
+
+    if (strcmp(word, "apple") == 0)
+        printf("equal\\n");
+    printf("apple vs banana: %s\\n", strcmp("apple", "banana") < 0 ? "before" : "after");
+    printf("Zebra vs apple: %s\\n", strcmp("Zebra", "apple") < 0 ? "before" : "after");
+    return 0;
+}
+`,
+    see: ['strncmp', 'memcmp', 'strcoll', 'qsort'],
+  },
+  strcoll: {
+    text: `Compares two strings like strcmp, but using the collating order of the current locale (the LC_COLLATE category set with setlocale). It returns 0 when equal, negative when s1 comes first and positive when s2 comes first.\n\nOnly the "C" locale exists in See, where the collating order is simply character code order, so strcoll gives the same answers as strcmp. In other locales on other systems it can sort accented letters or ignore case the way a dictionary does.`,
+    example: `#include <stdio.h>
+#include <string.h>
+#include <locale.h>
+
+int main(void)
+{
+    setlocale(LC_COLLATE, "C");
+    printf("strcoll: %d, strcmp: %d\\n",
+           strcoll("cat", "dog") < 0, strcmp("cat", "dog") < 0);
+    return 0;
+}
+`,
+    see: ['strcmp', 'strxfrm', 'setlocale'],
+  },
+  strncmp: {
+    text: `Compares at most n characters of s1 and s2, stopping early at a difference or at the end of either string. It returns 0, a negative or a positive number exactly like strcmp.\n\nIt is the usual way to test whether a string starts with a prefix: strncmp(line, "GET ", 4) == 0. With n == 0 it always returns 0.`,
+    example: `#include <stdio.h>
+#include <string.h>
+
+int main(void)
+{
+    const char *cmds[3] = { "print 42", "quit", "printx" };
+    int i;
+
+    for (i = 0; i < 3; i++)
+        printf("%-9s %s\\n", cmds[i], strncmp(cmds[i], "print ", 6) == 0 ? "starts with print" : "-");
+    return 0;
+}
+`,
+    see: ['strcmp', 'memcmp'],
+  },
+  strxfrm: {
+    text: `Transforms the string s2 into s1 so that comparing two transformed strings with strcmp gives the same result as comparing the originals with strcoll. At most n characters, including the NUL, are written. It returns the length of the transformed string, not counting the NUL; if that is n or more, the contents of s1 are not usable and you need a bigger array.\n\nIt pays off when the same strings are compared many times, such as when sorting. In the "C" locale, the only one in See, the transformation is a plain copy, and when the result does not fit See writes nothing. Calling strxfrm(NULL, s, 0) is a way to ask how big the array must be.`,
+    example: `#include <stdio.h>
+#include <string.h>
+
+int main(void)
+{
+    char key[32];
+    size_t need;
+
+    need = strxfrm(NULL, "banana", 0);
+    printf("needs %d characters plus the NUL\\n", (int)need);
+    if (need < sizeof key) {
+        strxfrm(key, "banana", sizeof key);
+        printf("key: %s\\n", key);
+    }
+    return 0;
+}
+`,
+    see: ['strcoll', 'strcmp'],
+  },
+  memchr: {
+    text: `Looks for the first byte equal to (unsigned char)c among the first n bytes at s. It returns a pointer to that byte, or NULL if none of the n bytes matches.\n\nUnlike strchr it does not stop at a NUL, so it works on raw buffers, such as the bytes returned by fread, and on arrays that are not strings. The pointer it returns is a void *; assign it to a char * or unsigned char * to use it, and subtract the start pointer to get an index.`,
+    example: `#include <stdio.h>
+#include <string.h>
+
+int main(void)
+{
+    char data[6] = { 'a', '\\0', 'b', 'c', 'd', 'e' };
+    char *p;
+
+    p = memchr(data, 'c', sizeof data);
+    if (p != NULL)
+        printf("found 'c' at index %d\\n", (int)(p - data));
+    return 0;
+}
+`,
+    see: ['strchr', 'memcmp'],
+  },
+  strchr: {
+    text: `Returns a pointer to the first occurrence of the character c (converted to char) in the string s, or NULL if it does not occur. The terminating NUL counts as part of the string, so strchr(s, '\\0') returns a pointer to the end of s.\n\nAlways check for NULL before using the result. Subtracting s from the result gives the index. To find the last occurrence, use strrchr; to find any of several characters, use strpbrk.\n\nThe return type is char * even though s is const char *, a hole in the C type system: do not write through the result if the string is a string literal.`,
+    example: `#include <stdio.h>
+#include <string.h>
+
+int main(void)
+{
+    char line[] = "name=value";
+    char *eq;
+
+    eq = strchr(line, '=');
+    if (eq != NULL) {
+        *eq = '\\0';
+        printf("key [%s] value [%s] at index %d\\n", line, eq + 1, (int)(eq - line));
+    }
+    return 0;
+}
+`,
+    see: ['strrchr', 'strpbrk', 'memchr', 'strstr'],
+  },
+  strcspn: {
+    text: `Returns the length of the initial part of s1 that contains no character from s2 (the "complement span"). Put the other way: it is the index of the first character of s1 that is in s2, or strlen(s1) if there is none.\n\nA handy use is removing the newline that fgets leaves in a line: line[strcspn(line, "\\n")] = '\\0'; works whether or not a newline is there.`,
+    example: `#include <stdio.h>
+#include <string.h>
+
+int main(void)
+{
+    char line[] = "hello world\\n";
+
+    printf("letters before a space: %d\\n", (int)strcspn(line, " "));
+    line[strcspn(line, "\\n")] = '\\0';
+    printf("[%s]\\n", line);
+    return 0;
+}
+`,
+    see: ['strspn', 'strpbrk', 'fgets'],
+  },
+  strpbrk: {
+    text: `Returns a pointer to the first character in s1 that is any of the characters in s2, or NULL if s1 contains none of them. The name means "pointer to break".\n\nIt is like strchr for a set of characters, and like strcspn but giving a pointer instead of a length.`,
+    example: `#include <stdio.h>
+#include <string.h>
+
+int main(void)
+{
+    const char *s = "price: 42 euros";
+    const char *p;
+
+    p = strpbrk(s, "0123456789");
+    if (p != NULL)
+        printf("first digit at index %d: %s\\n", (int)(p - s), p);
+    return 0;
+}
+`,
+    see: ['strchr', 'strcspn', 'strtok'],
+  },
+  strrchr: {
+    text: `Returns a pointer to the last occurrence of the character c in the string s, or NULL if it does not occur. Like strchr, the terminating NUL counts as part of the string.\n\nA typical use is finding the file name in a path (the part after the last '/') or the extension of a file name (the part after the last '.').`,
+    example: `#include <stdio.h>
+#include <string.h>
+
+int main(void)
+{
+    const char *path = "/home/user/notes.backup.txt";
+    const char *slash, *dot;
+
+    slash = strrchr(path, '/');
+    dot = strrchr(path, '.');
+    printf("file: %s\\n", slash ? slash + 1 : path);
+    printf("extension: %s\\n", dot ? dot + 1 : "(none)");
+    return 0;
+}
+`,
+    see: ['strchr', 'strstr'],
+  },
+  strspn: {
+    text: `Returns the length of the initial part of s1 made up only of characters from s2. In other words, it is the index of the first character of s1 that is not in s2.\n\nUse it to skip over leading characters of a known kind, such as spaces or digits: s + strspn(s, " \\t") points at the first character that is not a blank.`,
+    example: `#include <stdio.h>
+#include <string.h>
+
+int main(void)
+{
+    const char *s = "   12345abc";
+    const char *p;
+    size_t digits;
+
+    p = s + strspn(s, " ");
+    digits = strspn(p, "0123456789");
+    printf("%d digits, then \\"%s\\"\\n", (int)digits, p + digits);
+    return 0;
+}
+`,
+    see: ['strcspn', 'strpbrk'],
+  },
+  strstr: {
+    text: `Finds the first occurrence of the string s2 (without its NUL) inside the string s1. It returns a pointer to where it starts in s1, or NULL if s2 does not occur. If s2 is the empty string, it returns s1.\n\nTo count or find every occurrence, call it again starting just after the previous match. The search is case-sensitive.`,
+    example: `#include <stdio.h>
+#include <string.h>
+
+int main(void)
+{
+    const char *text = "the cat sat on the mat with the hat";
+    const char *p = text;
+    int count = 0;
+
+    while ((p = strstr(p, "the")) != NULL) {
+        printf("\\"the\\" at index %d\\n", (int)(p - text));
+        count++;
+        p++;
+    }
+    printf("%d times\\n", count);
+    return 0;
+}
+`,
+    see: ['strchr', 'strpbrk', 'strncmp'],
+  },
+  strtok: {
+    text: `Splits a string into tokens separated by any of the characters in s2. The first call passes the string in s1; each later call passes NULL to continue where the previous one stopped. Each call returns a pointer to the next token, or NULL when there are no more.\n\nstrtok changes the string: it overwrites each separator that ends a token with a NUL. So the string must be modifiable, an array and not a string literal (strtok("a,b", ",") writes into read-only memory), and the original text is gone afterwards. In See's memory picture you can watch the separators turn into NUL bytes.\n\nIt remembers its position in a hidden static variable, so you cannot interleave two tokenizing loops, and runs of separators are skipped, so empty fields such as the middle of "a,,b" are lost. The separator set may change from one call to the next.`,
+    example: `#include <stdio.h>
+#include <string.h>
+
+int main(void)
+{
+    char line[] = "red, green,,blue";
+    char *tok;
+    int n = 0;
+
+    tok = strtok(line, ", ");
+    while (tok != NULL) {
+        printf("token %d: %s\\n", ++n, tok);
+        tok = strtok(NULL, ", ");
+    }
+    return 0;
+}
+`,
+    see: ['strchr', 'strpbrk', 'strspn', 'strcspn'],
+  },
+  memset: {
+    text: `Sets each of the first n bytes at s to the value (unsigned char)c and returns s. It is the quick way to zero an array or a struct: memset(&x, 0, sizeof x).\n\nIt works byte by byte, so memset(a, 1, sizeof a) on an array of int does not make each element 1: each 4-byte int becomes 0x01010101, which is 16843009. Only 0 (and -1, all bits set) mean the same thing in every byte. To set ints to another value, use a loop.\n\nAll-bits-zero is 0 for integers and, on this machine, 0.0 for doubles and NULL for pointers, but the C standard does not promise the last two everywhere. Remember the size in bytes: memset(a, 0, n) clears n bytes, not n elements.`,
+    example: `#include <stdio.h>
+#include <string.h>
+
+int main(void)
+{
+    int a[3];
+    char line[8];
+
+    memset(a, 0, sizeof a);
+    printf("%d %d %d\\n", a[0], a[1], a[2]);
+    memset(a, 1, sizeof a);
+    printf("%d (not 1)\\n", a[0]);
+    memset(line, '-', sizeof line - 1);
+    line[sizeof line - 1] = '\\0';
+    printf("%s\\n", line);
+    return 0;
+}
+`,
+    see: ['memcpy', 'calloc'],
+  },
+  strerror: {
+    text: `Returns a pointer to a message describing the error number errnum, usually a value of errno, such as "No such file or directory" for ENOENT. Unknown numbers give "Unknown error".\n\nThe string belongs to the library: do not modify or free it. Save errno right after the failing call, because any later library call may change it. perror is a shorter way to print the message for errno to stderr.`,
+    example: `#include <stdio.h>
+#include <string.h>
+#include <errno.h>
+
+int main(void)
+{
+    FILE *fp;
+
+    fp = fopen("/no/such/file.txt", "r");
+    if (fp == NULL)
+        printf("fopen failed: %s (errno %d)\\n", strerror(errno), errno);
+    else
+        fclose(fp);
+    printf("ERANGE means: %s\\n", strerror(ERANGE));
+    return 0;
+}
+`,
+    see: ['perror', 'errno'],
+  },
+  strlen: {
+    text: `Returns the number of characters in the string s, not counting the terminating NUL. strlen("hi") is 2, while the array that holds "hi" needs 3 bytes.\n\nIt counts by walking from s until it finds a NUL byte, so it takes time proportional to the length; calling it in a loop condition such as for (i = 0; i < strlen(s); i++) repeats that walk every time. If there is no NUL, it keeps reading past the end of the array: See stops it at the first byte outside the object.\n\nstrlen is not sizeof. For char buf[100] = "hi", sizeof buf is 100 (the array) and strlen(buf) is 2 (the text). For a char * pointer, sizeof gives the size of the pointer, 4 here. The result has type size_t, which is unsigned: strlen(a) - strlen(b) is never negative, so compare the lengths instead of subtracting them.`,
+    example: `#include <stdio.h>
+#include <string.h>
+
+int main(void)
+{
+    char buf[100] = "hello";
+    const char *p = buf;
+
+    printf("strlen(buf) = %d\\n", (int)strlen(buf));
+    printf("sizeof buf  = %d\\n", (int)sizeof buf);
+    printf("sizeof p    = %d\\n", (int)sizeof p);
+    return 0;
+}
+`,
+    see: ['sizeof', 'strcpy', 'size_t'],
+  },
+});
+
 // ==== ide/help.js ====
 // The C reference: every library function (its prototype comes from the real header), the
 // keywords, the operators and the headers, with a short explanation and an example.
