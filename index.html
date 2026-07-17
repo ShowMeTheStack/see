@@ -11032,6 +11032,784 @@ int main(void)
   };
 })(SEE);
 
+// ==== ide/ref/ctype.js ====
+/* The C reference: <ctype.h> */
+SEE.RefText = Object.assign(SEE.RefText || {}, {
+  isalnum: {
+    text: 'isalnum(c) is true (non-zero) when c is a letter or a decimal digit: A to Z, a to z or 0 to 9 in the "C" locale. It returns 0 otherwise.\n\nThe argument is an int that must be either EOF or a value representable as unsigned char. A plain char holding a byte above 127 is negative on this machine (plain char is signed), so passing it straight in is undefined behaviour; cast it first: isalnum((unsigned char)s[i]).\n\nThe result is only "zero or non-zero". Do not compare it with 1.',
+    example: `#include <stdio.h>
+#include <ctype.h>
+
+int main(void)
+{
+    const char *s = "R2-D2, ok?";
+    int i, n = 0;
+
+    for (i = 0; s[i] != '\\0'; i++)
+        if (isalnum((unsigned char)s[i]))
+            n++;
+    printf("%d of the characters in \\"%s\\" are letters or digits\\n", n, s);
+    return 0;
+}
+`,
+    see: ['isalpha', 'isdigit', 'ispunct', 'isspace'],
+  },
+  isalpha: {
+    text: 'isalpha(c) is true when c is a letter, upper or lower case. In the "C" locale that is exactly A to Z and a to z.\n\nLike every <ctype.h> test it takes an int that must be EOF or an unsigned char value, so cast a char before passing it: isalpha((unsigned char)ch). It returns non-zero for yes and 0 for no; the non-zero value is not necessarily 1.\n\nA common use is reading a word: skip characters while !isalpha, then collect while isalpha.',
+    example: `#include <stdio.h>
+#include <ctype.h>
+
+int main(void)
+{
+    const char *s = "3 apples and 12 pears";
+    int i, words = 0, inword = 0;
+
+    for (i = 0; s[i] != '\\0'; i++) {
+        if (isalpha((unsigned char)s[i])) {
+            if (!inword)
+                words++;
+            inword = 1;
+        } else {
+            inword = 0;
+        }
+    }
+    printf("%d words made of letters\\n", words);
+    return 0;
+}
+`,
+    see: ['isalnum', 'isupper', 'islower', 'toupper'],
+  },
+  iscntrl: {
+    text: 'iscntrl(c) is true for the control characters: codes 0 to 31 and 127 (DEL) in ASCII. These include newline, tab, carriage return and the NUL character.\n\nControl characters do not print as visible marks, so iscntrl is handy when dumping data: show them as an escape or a code instead. Every character is exactly one of: control, printing (isprint), or neither (bytes above 127 in the "C" locale).\n\nCast a char to unsigned char before passing it in.',
+    example: `#include <stdio.h>
+#include <ctype.h>
+
+int main(void)
+{
+    const char *s = "tab\\there\\n";
+    int i;
+
+    for (i = 0; s[i] != '\\0'; i++) {
+        if (iscntrl((unsigned char)s[i]))
+            printf("[%d]", s[i]);
+        else
+            putchar(s[i]);
+    }
+    putchar('\\n');
+    return 0;
+}
+`,
+    see: ['isprint', 'isspace', 'isgraph'],
+  },
+  isdigit: {
+    text: 'isdigit(c) is true when c is one of the decimal digits 0 to 9. It is the only <ctype.h> test whose answer does not depend on the locale.\n\nThe digits are consecutive in every C character set, so once isdigit(c) is true, c - \'0\' is the digit\'s value. That is how atoi and strtol build a number.\n\nPass an int that is EOF or an unsigned char value; cast plain chars. For hexadecimal digits use isxdigit.',
+    example: `#include <stdio.h>
+#include <ctype.h>
+
+int main(void)
+{
+    const char *s = "Order 4071 shipped";
+    int i, value = 0;
+
+    for (i = 0; s[i] != '\\0'; i++)
+        if (isdigit((unsigned char)s[i]))
+            value = value * 10 + (s[i] - '0');
+    printf("number found: %d\\n", value);
+    return 0;
+}
+`,
+    see: ['isxdigit', 'isalnum', 'atoi', 'strtol'],
+  },
+  isgraph: {
+    text: 'isgraph(c) is true for printing characters other than space: every character that leaves a visible mark. In ASCII that is codes 33 to 126.\n\nIt is isprint without the space. Use it to find where the visible text in a line starts or ends.\n\nCast plain chars to unsigned char before passing them in.',
+    example: `#include <stdio.h>
+#include <ctype.h>
+
+int main(void)
+{
+    const char *s = "  hi there  ";
+    int i, n = 0;
+
+    for (i = 0; s[i] != '\\0'; i++)
+        if (isgraph((unsigned char)s[i]))
+            n++;
+    printf("%d visible characters\\n", n);
+    return 0;
+}
+`,
+    see: ['isprint', 'isspace', 'ispunct'],
+  },
+  islower: {
+    text: 'islower(c) is true when c is a lower-case letter, a to z in the "C" locale.\n\nIt says nothing about digits or punctuation: islower(\'5\') is 0, and so is isupper(\'5\'). Use toupper to convert; it already leaves characters that are not lower-case letters alone, so you need not test first.\n\nCast plain chars to unsigned char before passing them in.',
+    example: `#include <stdio.h>
+#include <ctype.h>
+
+int main(void)
+{
+    const char *s = "Hello World";
+    int i, lower = 0, upper = 0;
+
+    for (i = 0; s[i] != '\\0'; i++) {
+        if (islower((unsigned char)s[i]))
+            lower++;
+        else if (isupper((unsigned char)s[i]))
+            upper++;
+    }
+    printf("%d lower, %d upper\\n", lower, upper);
+    return 0;
+}
+`,
+    see: ['isupper', 'tolower', 'toupper', 'isalpha'],
+  },
+  isprint: {
+    text: 'isprint(c) is true for printing characters, including the space: codes 32 to 126 in ASCII.\n\nThe opposite of a printing character, for ASCII, is a control character (iscntrl). A hex dump typically prints the byte itself when isprint is true and a dot otherwise.\n\nCast plain chars to unsigned char before passing them in; bytes above 127 are not printing characters in the "C" locale.',
+    example: `#include <stdio.h>
+#include <ctype.h>
+
+int main(void)
+{
+    const char data[] = "A\\001b\\tC";
+    int i;
+
+    for (i = 0; i < (int)sizeof data - 1; i++)
+        putchar(isprint((unsigned char)data[i]) ? data[i] : '.');
+    putchar('\\n');
+    return 0;
+}
+`,
+    see: ['isgraph', 'iscntrl'],
+  },
+  ispunct: {
+    text: 'ispunct(c) is true for printing characters that are neither a space nor a letter or digit: ! " # , . ; and so on.\n\nIn other words ispunct(c) is isgraph(c) && !isalnum(c).\n\nCast plain chars to unsigned char before passing them in.',
+    example: `#include <stdio.h>
+#include <ctype.h>
+
+int main(void)
+{
+    const char *s = "Wait... what?!";
+    int i, n = 0;
+
+    for (i = 0; s[i] != '\\0'; i++)
+        if (ispunct((unsigned char)s[i]))
+            n++;
+    printf("%d punctuation marks\\n", n);
+    return 0;
+}
+`,
+    see: ['isalnum', 'isgraph', 'isspace'],
+  },
+  isspace: {
+    text: 'isspace(c) is true for the white-space characters: space, tab \\t, newline \\n, vertical tab \\v, form feed \\f and carriage return \\r.\n\nIt is the test scanf uses for a space in its format, and the one to use when trimming a line or splitting it into words. The newline counts as white space, which is why a %d conversion happily skips over line ends.\n\nCast plain chars to unsigned char before passing them in.',
+    example: `#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+
+int main(void)
+{
+    char line[32];
+    size_t n;
+
+    strcpy(line, "  padded text \\t\\n");
+    n = strlen(line);
+    while (n > 0 && isspace((unsigned char)line[n - 1]))
+        line[--n] = '\\0';
+    printf("[%s]\\n", line);
+    return 0;
+}
+`,
+    see: ['isgraph', 'iscntrl', 'strtok'],
+  },
+  isupper: {
+    text: 'isupper(c) is true when c is an upper-case letter, A to Z in the "C" locale.\n\nDigits and punctuation are neither upper nor lower case. To convert, use tolower, which leaves anything that is not an upper-case letter unchanged.\n\nCast plain chars to unsigned char before passing them in.',
+    example: `#include <stdio.h>
+#include <ctype.h>
+
+int main(void)
+{
+    const char *name = "John Ronald Reuel Tolkien";
+    int i;
+
+    for (i = 0; name[i] != '\\0'; i++)
+        if (isupper((unsigned char)name[i]))
+            putchar(name[i]);
+    putchar('\\n');
+    return 0;
+}
+`,
+    see: ['islower', 'tolower', 'toupper'],
+  },
+  isxdigit: {
+    text: 'isxdigit(c) is true for hexadecimal digits: 0 to 9, a to f and A to F.\n\nTo get the value of a hex digit, handle the three ranges yourself: c - \'0\' for digits, then tolower(c) - \'a\' + 10 for letters. strtol with base 16 does the whole job for a number.\n\nCast plain chars to unsigned char before passing them in.',
+    example: `#include <stdio.h>
+#include <ctype.h>
+
+int main(void)
+{
+    const char *s = "1F";
+    int i, v = 0;
+
+    for (i = 0; isxdigit((unsigned char)s[i]); i++) {
+        int c = tolower((unsigned char)s[i]);
+        v = v * 16 + (isdigit(c) ? c - '0' : c - 'a' + 10);
+    }
+    printf("0x%s = %d\\n", s, v);
+    return 0;
+}
+`,
+    see: ['isdigit', 'strtol', 'tolower'],
+  },
+  tolower: {
+    text: 'tolower(c) returns the lower-case version of c if c is an upper-case letter, and c unchanged otherwise. It does not change anything in memory: it returns a new value, which you must store.\n\nThe argument must be EOF or an unsigned char value, so cast plain chars: s[i] = (char)tolower((unsigned char)s[i]).\n\nThe return type is int. To lower-case a whole string, loop over it; there is no standard function that does a string at once.',
+    example: `#include <stdio.h>
+#include <ctype.h>
+
+int main(void)
+{
+    char s[] = "MiXeD CaSe";
+    int i;
+
+    for (i = 0; s[i] != '\\0'; i++)
+        s[i] = (char)tolower((unsigned char)s[i]);
+    printf("%s\\n", s);
+    return 0;
+}
+`,
+    see: ['toupper', 'isupper', 'islower'],
+  },
+  toupper: {
+    text: 'toupper(c) returns the upper-case version of c if c is a lower-case letter, and c unchanged otherwise.\n\nThe argument must be EOF or an unsigned char value, so cast plain chars. The result is an int; store it back into a char with a cast if you are changing a string in place.\n\nA string literal cannot be changed, so copy it into a char array before converting it.',
+    example: `#include <stdio.h>
+#include <ctype.h>
+
+int main(void)
+{
+    char word[] = "shout";
+    int i;
+
+    for (i = 0; word[i] != '\\0'; i++)
+        word[i] = (char)toupper((unsigned char)word[i]);
+    printf("%s!\\n", word);
+    return 0;
+}
+`,
+    see: ['tolower', 'islower', 'isupper'],
+  },
+});
+
+// ==== ide/ref/locale.js ====
+/* The C reference: <locale.h> */
+SEE.RefText = Object.assign(SEE.RefText || {}, {
+  setlocale: {
+    text: 'setlocale(category, locale) selects the locale, the set of national conventions (decimal point, character classes, collation order, time and money formats), for one category or for all of them with LC_ALL. It returns a string naming the new locale, or NULL if the request cannot be honoured, in which case nothing changes.\n\nlocale "C" is the minimal locale every C program starts in. "" asks for the user\'s native locale from the environment. NULL changes nothing and just asks which locale is in effect.\n\nSee only has the "C" locale, so "C" and "" succeed and any other name returns NULL. The returned string belongs to the library: do not modify or free it, and copy it if you need it after another setlocale call.',
+    example: `#include <stdio.h>
+#include <locale.h>
+
+int main(void)
+{
+    if (setlocale(LC_ALL, "C") != NULL)
+        printf("the C locale is available\\n");
+    if (setlocale(LC_ALL, "fr_FR") == NULL)
+        printf("fr_FR is not available here\\n");
+    return 0;
+}
+`,
+    see: ['localeconv', 'LC_ALL', 'lconv'],
+  },
+  localeconv: {
+    text: 'localeconv() returns a pointer to a struct lconv describing how numbers and money are formatted in the current locale: the decimal point, the thousands separator, the currency symbol and so on.\n\nThe structure belongs to the library and may be overwritten by the next call to localeconv or setlocale. Read it, do not change it.\n\nIn the "C" locale the decimal point is "." and most other strings are empty, with the char fields set to CHAR_MAX meaning "not available".',
+    example: `#include <stdio.h>
+#include <limits.h>
+#include <locale.h>
+
+int main(void)
+{
+    struct lconv *lc = localeconv();
+
+    printf("decimal point: \\"%s\\"\\n", lc->decimal_point);
+    printf("thousands separator: \\"%s\\"\\n", lc->thousands_sep);
+    printf("frac_digits %s\\n", lc->frac_digits == CHAR_MAX ? "not available" : "given");
+    return 0;
+}
+`,
+    see: ['setlocale', 'lconv'],
+  },
+  lconv: {
+    header: 'locale.h',
+    kind: 'type',
+    sig: 'struct lconv { char *decimal_point; char *thousands_sep; char *grouping; ... char frac_digits; ... };',
+    text: 'struct lconv is the structure localeconv returns, describing the numeric and monetary conventions of the current locale.\n\nThe string fields for ordinary numbers are decimal_point, thousands_sep and grouping. The monetary ones are int_curr_symbol, currency_symbol, mon_decimal_point, mon_thousands_sep, mon_grouping, positive_sign and negative_sign. The char fields (int_frac_digits, frac_digits, p_cs_precedes, p_sep_by_space, n_cs_precedes, n_sep_by_space, p_sign_posn, n_sign_posn) describe where the symbol and sign go; CHAR_MAX means the information is not available.\n\nOpen /usr/include/locale.h to see the full declaration.',
+    example: `#include <stdio.h>
+#include <locale.h>
+
+int main(void)
+{
+    struct lconv *lc = localeconv();
+
+    printf("currency symbol: \\"%s\\", decimal point \\"%s\\"\\n", lc->currency_symbol, lc->decimal_point);
+    return 0;
+}
+`,
+    see: ['localeconv', 'setlocale'],
+  },
+  LC_ALL: {
+    text: 'LC_ALL, passed to setlocale, sets or queries every category of the locale at once. It is the category most programs use.\n\nsetlocale(LC_ALL, "") switches the whole program to the user\'s preferred conventions; setlocale(LC_ALL, "C") goes back to the defaults.',
+    example: `#include <stdio.h>
+#include <locale.h>
+
+int main(void)
+{
+    char *name = setlocale(LC_ALL, "");
+
+    printf("native locale %s\\n", name != NULL ? "selected" : "not available");
+    return 0;
+}
+`,
+    see: ['setlocale', 'LC_NUMERIC', 'LC_CTYPE'],
+  },
+  LC_COLLATE: {
+    text: 'LC_COLLATE is the category that controls how strings are ordered by strcoll and transformed by strxfrm. strcmp is not affected: it always compares the character codes.',
+    example: `#include <stdio.h>
+#include <string.h>
+#include <locale.h>
+
+int main(void)
+{
+    setlocale(LC_COLLATE, "C");
+    printf("strcoll(\\"apple\\", \\"Banana\\") %s 0\\n", strcoll("apple", "Banana") > 0 ? ">" : "<=");
+    return 0;
+}
+`,
+    see: ['setlocale', 'strcoll', 'strxfrm'],
+  },
+  LC_CTYPE: {
+    text: 'LC_CTYPE is the category that controls character handling: which characters isalpha, isupper and the other <ctype.h> tests accept, what toupper and tolower do, and how multibyte characters are read.\n\nIn the "C" locale only the ASCII letters are letters.',
+    example: `#include <stdio.h>
+#include <ctype.h>
+#include <locale.h>
+
+int main(void)
+{
+    setlocale(LC_CTYPE, "C");
+    printf("is 0xE9 a letter in the C locale? %s\\n", isalpha(0xE9) ? "yes" : "no");
+    return 0;
+}
+`,
+    see: ['setlocale', 'isalpha', 'MB_LEN_MAX'],
+  },
+  LC_MONETARY: {
+    text: 'LC_MONETARY is the category that controls the money-formatting fields localeconv reports: currency_symbol, mon_decimal_point, frac_digits and the rest. No C89 function formats money by itself; programs read these fields and do it.',
+    example: `#include <stdio.h>
+#include <locale.h>
+
+int main(void)
+{
+    setlocale(LC_MONETARY, "C");
+    printf("currency symbol in the C locale: \\"%s\\"\\n", localeconv()->currency_symbol);
+    return 0;
+}
+`,
+    see: ['setlocale', 'localeconv', 'lconv'],
+  },
+  LC_NUMERIC: {
+    text: 'LC_NUMERIC is the category that controls the decimal point used by printf, scanf, strtod and atof, and the non-monetary fields of localeconv.\n\nIn a locale where the decimal point is a comma, printf("%f", 1.5) would print 1,500000. Programs that write data files often keep LC_NUMERIC at "C" for exactly that reason.',
+    example: `#include <stdio.h>
+#include <locale.h>
+
+int main(void)
+{
+    setlocale(LC_NUMERIC, "C");
+    printf("%.2f uses \\"%s\\" as the decimal point\\n", 3.14, localeconv()->decimal_point);
+    return 0;
+}
+`,
+    see: ['setlocale', 'localeconv', 'printf', 'strtod'],
+  },
+  LC_TIME: {
+    text: 'LC_TIME is the category that controls how strftime writes dates and times: the names of months and weekdays, and the formats of %c, %x and %X.',
+    example: `#include <stdio.h>
+#include <time.h>
+#include <locale.h>
+
+int main(void)
+{
+    time_t t = 0;
+    char buf[40];
+
+    setlocale(LC_TIME, "C");
+    strftime(buf, sizeof buf, "%A %B", gmtime(&t));
+    printf("%s\\n", buf);
+    return 0;
+}
+`,
+    see: ['setlocale', 'strftime'],
+  },
+});
+
+// ==== ide/ref/math.js ====
+/* The C reference: <math.h> */
+SEE.RefText = Object.assign(SEE.RefText || {}, {
+  HUGE_VAL: {
+    text: 'HUGE_VAL is a positive double that the math functions return when the true result is too large to represent. On this machine, as on every IEEE 754 machine, it is positive infinity, which printf shows as inf.\n\nWhen a result overflows, the function returns HUGE_VAL (or -HUGE_VAL for a huge negative result) and sets errno to ERANGE. To detect it reliably, set errno to 0 before the call and look at it afterwards; comparing with HUGE_VAL alone cannot tell an overflow from a genuine infinity that was passed in.\n\nIn C89 HUGE_VAL is the only such constant: there is no INFINITY or NAN macro. Here it expands to a call of a library helper, so it cannot be used to initialise a static variable.',
+    example: `#include <stdio.h>
+#include <math.h>
+#include <errno.h>
+
+int main(void)
+{
+    double r;
+
+    errno = 0;
+    r = exp(1000.0);
+    if (errno == ERANGE && r == HUGE_VAL)
+        printf("exp(1000) overflowed: %g\\n", r);
+    printf("-HUGE_VAL prints as %g\\n", -HUGE_VAL);
+    return 0;
+}
+`,
+    see: ['ERANGE', 'errno', 'exp', 'pow', 'DBL_MAX'],
+  },
+  acos: {
+    text: 'acos(x) returns the arc cosine of x: the angle in radians, from 0 to pi, whose cosine is x.\n\nx must lie between -1 and 1. Outside that range it is a domain error: errno is set to EDOM and the result is a NaN, which printf shows as nan. Values computed by floating-point arithmetic can drift slightly past 1, so clamp them first when that can happen.\n\nThere is no pi constant in C89; acos(-1.0) is a common way to get one.',
+    example: `#include <stdio.h>
+#include <math.h>
+
+int main(void)
+{
+    double pi = acos(-1.0);
+
+    printf("pi = %.10f\\n", pi);
+    printf("acos(0.5) = %f radians = %f degrees\\n", acos(0.5), acos(0.5) * 180.0 / pi);
+    return 0;
+}
+`,
+    see: ['asin', 'atan', 'cos', 'EDOM'],
+  },
+  asin: {
+    text: 'asin(x) returns the arc sine of x: the angle in radians, from -pi/2 to pi/2, whose sine is x.\n\nx must be between -1 and 1; otherwise errno is set to EDOM and the result is NaN.\n\nAll the trigonometric functions work in radians. Multiply by 180/pi to get degrees.',
+    example: `#include <stdio.h>
+#include <math.h>
+
+int main(void)
+{
+    double pi = acos(-1.0);
+
+    printf("asin(1) = %f (pi/2 = %f)\\n", asin(1.0), pi / 2);
+    printf("asin(0.5) in degrees = %.1f\\n", asin(0.5) * 180.0 / pi);
+    return 0;
+}
+`,
+    see: ['acos', 'sin', 'atan'],
+  },
+  atan: {
+    text: 'atan(x) returns the arc tangent of x, an angle in radians between -pi/2 and pi/2. Every x is allowed.\n\nBecause it only sees the ratio y/x, atan cannot tell which quadrant an angle is in: atan(1/1) and atan(-1/-1) are the same. Use atan2(y, x) when you have the two coordinates.',
+    example: `#include <stdio.h>
+#include <math.h>
+
+int main(void)
+{
+    printf("atan(1) * 4 = %.6f\\n", atan(1.0) * 4);
+    printf("atan(1e9) = %.6f\\n", atan(1e9));
+    return 0;
+}
+`,
+    see: ['atan2', 'tan', 'asin'],
+  },
+  atan2: {
+    text: 'atan2(y, x) returns the angle in radians, from -pi to pi, of the point (x, y) measured from the positive x axis. Note the order: y comes first.\n\nUnlike atan(y / x) it uses the signs of both arguments to pick the right quadrant, and it works when x is 0. atan2(0, 0) may be a domain error.\n\nIt is the usual way to turn a direction vector into an angle.',
+    example: `#include <stdio.h>
+#include <math.h>
+
+int main(void)
+{
+    double deg = 180.0 / acos(-1.0);
+
+    printf("( 1, 1) -> %6.1f degrees\\n", atan2(1.0, 1.0) * deg);
+    printf("(-1, 1) -> %6.1f degrees\\n", atan2(1.0, -1.0) * deg);
+    printf("(-1,-1) -> %6.1f degrees\\n", atan2(-1.0, -1.0) * deg);
+    return 0;
+}
+`,
+    see: ['atan', 'sqrt', 'cos'],
+  },
+  cos: {
+    text: 'cos(x) returns the cosine of x, where x is in radians.\n\nFor very large x the result loses precision, because x itself cannot hold enough digits to say where in the cycle it lies. Keep angles small by reducing them yourself when you can.\n\nThe result is a double; floating-point rounding means cos(pi / 2) prints as a tiny number like 6.1e-17 rather than exactly 0.',
+    example: `#include <stdio.h>
+#include <math.h>
+
+int main(void)
+{
+    double pi = acos(-1.0);
+    int d;
+
+    for (d = 0; d <= 180; d += 45)
+        printf("cos(%3d degrees) = %9.6f\\n", d, cos(d * pi / 180.0));
+    return 0;
+}
+`,
+    see: ['sin', 'tan', 'acos'],
+  },
+  sin: {
+    text: 'sin(x) returns the sine of x, where x is in radians.\n\nTo use degrees, multiply by pi/180 first. C89 has no M_PI; compute pi once with acos(-1.0) or 4 * atan(1.0).\n\nThe result is between -1 and 1.',
+    example: `#include <stdio.h>
+#include <math.h>
+
+int main(void)
+{
+    double pi = acos(-1.0);
+    int i;
+
+    for (i = 0; i <= 8; i++)
+        printf("%*s*\\n", (int)(20 + 18 * sin(i * pi / 4)), "");
+    return 0;
+}
+`,
+    see: ['cos', 'tan', 'asin'],
+  },
+  tan: {
+    text: 'tan(x) returns the tangent of x, where x is in radians.\n\nNear pi/2 (and every pi after it) the tangent grows without limit. Because pi/2 cannot be represented exactly, tan never returns infinity there, just a very large number.',
+    example: `#include <stdio.h>
+#include <math.h>
+
+int main(void)
+{
+    double pi = acos(-1.0);
+
+    printf("tan(pi/4) = %f\\n", tan(pi / 4));
+    printf("tan(pi/2) = %g\\n", tan(pi / 2));
+    return 0;
+}
+`,
+    see: ['sin', 'cos', 'atan'],
+  },
+  cosh: {
+    text: 'cosh(x) returns the hyperbolic cosine of x, (e^x + e^-x) / 2.\n\nIt grows like exp, so for large |x| (around 710 and up) it overflows: the result is HUGE_VAL and errno is set to ERANGE.',
+    example: `#include <stdio.h>
+#include <math.h>
+
+int main(void)
+{
+    double x = 1.0;
+
+    printf("cosh(1) = %f\\n", cosh(x));
+    printf("cosh^2 - sinh^2 = %f\\n", cosh(x) * cosh(x) - sinh(x) * sinh(x));
+    return 0;
+}
+`,
+    see: ['sinh', 'tanh', 'exp'],
+  },
+  sinh: {
+    text: 'sinh(x) returns the hyperbolic sine of x, (e^x - e^-x) / 2.\n\nFor large |x| it overflows to plus or minus HUGE_VAL with errno set to ERANGE.',
+    example: `#include <stdio.h>
+#include <math.h>
+
+int main(void)
+{
+    printf("sinh(0) = %f, sinh(2) = %f\\n", sinh(0.0), sinh(2.0));
+    return 0;
+}
+`,
+    see: ['cosh', 'tanh', 'exp'],
+  },
+  tanh: {
+    text: 'tanh(x) returns the hyperbolic tangent of x, sinh(x) / cosh(x). The result always lies between -1 and 1, so it never overflows.\n\nIt is used as a smooth "squashing" function that turns any number into one between -1 and 1.',
+    example: `#include <stdio.h>
+#include <math.h>
+
+int main(void)
+{
+    double x;
+
+    for (x = -3.0; x <= 3.0; x += 1.5)
+        printf("tanh(%4.1f) = %f\\n", x, tanh(x));
+    return 0;
+}
+`,
+    see: ['sinh', 'cosh'],
+  },
+  exp: {
+    text: 'exp(x) returns e raised to the power x, where e is about 2.71828.\n\nIf the result is too large (x above about 709.78) the function returns HUGE_VAL and sets errno to ERANGE. If it is too small to represent (x below about -745) it returns 0 and may set ERANGE.\n\nThe inverse is log.',
+    example: `#include <stdio.h>
+#include <math.h>
+
+int main(void)
+{
+    printf("e = %.10f\\n", exp(1.0));
+    printf("exp(log(42)) = %f\\n", exp(log(42.0)));
+    return 0;
+}
+`,
+    see: ['log', 'pow', 'HUGE_VAL', 'ERANGE'],
+  },
+  frexp: {
+    text: 'frexp(value, &e) splits value into a fraction and a power of two: it returns a fraction f with 0.5 <= |f| < 1 and stores an int e so that value == f * 2 to the power e. For 0 both parts are 0.\n\nThis is exactly how a double is stored: a mantissa and a binary exponent. The second argument must point to an int you own.\n\nDo not read e in the same printf call that calls frexp: the order in which arguments are evaluated is unspecified, so e may be read before frexp stored it.',
+    example: `#include <stdio.h>
+#include <math.h>
+
+int main(void)
+{
+    int e;
+    double f = frexp(48.0, &e);
+
+    printf("48 = %g * 2^%d\\n", f, e);
+    printf("ldexp gives back %g\\n", ldexp(f, e));
+    return 0;
+}
+`,
+    see: ['ldexp', 'modf'],
+  },
+  ldexp: {
+    text: 'ldexp(x, e) returns x multiplied by 2 to the power e. It is the inverse of frexp.\n\nIt is exact as long as the result neither overflows nor becomes too small: it only changes the exponent of the double. On overflow it returns HUGE_VAL and sets errno to ERANGE.',
+    example: `#include <stdio.h>
+#include <math.h>
+
+int main(void)
+{
+    printf("ldexp(3, 4) = %g\\n", ldexp(3.0, 4));
+    printf("ldexp(1, -3) = %g\\n", ldexp(1.0, -3));
+    return 0;
+}
+`,
+    see: ['frexp', 'pow'],
+  },
+  log: {
+    text: 'log(x) returns the natural logarithm of x (base e). It is not base 10; that is log10.\n\nx must be positive. A negative x is a domain error: errno becomes EDOM and the result is NaN. log(0) is a range error: the result is -HUGE_VAL (printed -inf) and errno is set to ERANGE.\n\nFor a logarithm in another base b, compute log(x) / log(b).',
+    example: `#include <stdio.h>
+#include <math.h>
+
+int main(void)
+{
+    printf("log(e) = %f\\n", log(exp(1.0)));
+    printf("log2(1024) = %f\\n", log(1024.0) / log(2.0));
+    return 0;
+}
+`,
+    see: ['log10', 'exp', 'EDOM', 'ERANGE'],
+  },
+  log10: {
+    text: 'log10(x) returns the base 10 logarithm of x.\n\nFor a positive whole number n, (int)log10(n) + 1 is its number of decimal digits, though floating-point rounding makes that risky right at powers of ten for large values. Counting digits with a loop is safer.\n\nAs with log, a negative x is a domain error (EDOM) and log10(0) gives -HUGE_VAL with ERANGE.',
+    example: `#include <stdio.h>
+#include <math.h>
+
+int main(void)
+{
+    printf("log10(1000) = %f\\n", log10(1000.0));
+    printf("log10(2) = %f\\n", log10(2.0));
+    return 0;
+}
+`,
+    see: ['log', 'pow'],
+  },
+  modf: {
+    text: 'modf(value, &ip) splits value into a whole part and a fraction with the same sign. It returns the fraction and stores the whole part, as a double, through ip.\n\nSo modf(-3.75, &ip) returns -0.75 and sets ip to -3. Both parts are exact.\n\nCall it in its own statement before printing ip: inside a single printf call the order the arguments are evaluated in is unspecified, and See will tell you when ip is read before it was given a value.',
+    example: `#include <stdio.h>
+#include <math.h>
+
+int main(void)
+{
+    double ip, frac;
+
+    frac = modf(-3.75, &ip);
+    printf("whole %g, fraction %g\\n", ip, frac);
+    return 0;
+}
+`,
+    see: ['floor', 'fmod', 'frexp'],
+  },
+  pow: {
+    text: 'pow(x, y) returns x raised to the power y.\n\nThere are traps. A negative x with a y that is not a whole number is a domain error (EDOM, result NaN). pow(0, y) with y negative is an error too. A result that is too big returns HUGE_VAL with errno set to ERANGE.\n\nThe result is a double. For integers, a loop of multiplications is exact; converting pow(10, 2) back to int usually gives 100, but rounding means you should add 0.5 before converting when the result must be exact. In C, ^ is exclusive or, not a power.',
+    example: `#include <stdio.h>
+#include <math.h>
+
+int main(void)
+{
+    printf("2^10 = %g\\n", pow(2.0, 10.0));
+    printf("square root of 2 = %f\\n", pow(2.0, 0.5));
+    printf("1000 at 5%% for 10 years = %.2f\\n", 1000.0 * pow(1.05, 10.0));
+    return 0;
+}
+`,
+    see: ['exp', 'sqrt', 'log', '^'],
+  },
+  sqrt: {
+    text: 'sqrt(x) returns the non-negative square root of x.\n\nx must not be negative: sqrt(-1.0) is a domain error, errno becomes EDOM and the result is NaN (printed nan).\n\nWithout #include <math.h>, a C89 compiler assumes sqrt returns int, and the result comes back as garbage. Always include the header.',
+    example: `#include <stdio.h>
+#include <math.h>
+
+int main(void)
+{
+    double a = 3.0, b = 4.0;
+
+    printf("hypotenuse of %g and %g is %g\\n", a, b, sqrt(a * a + b * b));
+    printf("sqrt(2) = %.12f\\n", sqrt(2.0));
+    return 0;
+}
+`,
+    see: ['pow', 'fabs', 'EDOM'],
+  },
+  ceil: {
+    text: 'ceil(x) returns the smallest whole number that is not less than x, as a double. It rounds up, towards positive infinity: ceil(2.1) is 3 and ceil(-2.9) is -2.\n\nThe result is a double; convert it to int yourself if you need an integer, making sure it fits.\n\nA typical use: how many pages of 10 lines does 42 lines need? ceil(42 / 10.0) is 5. With integers the same is (42 + 9) / 10.',
+    example: `#include <stdio.h>
+#include <math.h>
+
+int main(void)
+{
+    printf("ceil(2.1) = %g, ceil(-2.9) = %g\\n", ceil(2.1), ceil(-2.9));
+    printf("pages for 42 lines: %d\\n", (int)ceil(42 / 10.0));
+    return 0;
+}
+`,
+    see: ['floor', 'modf', 'fmod'],
+  },
+  fabs: {
+    text: 'fabs(x) returns the absolute value of a double.\n\nabs and labs in <stdlib.h> are for int and long; calling abs on a double converts it to int first and loses the fraction.\n\nA common use is comparing doubles: instead of a == b, test fabs(a - b) < some small tolerance, because rounding rarely leaves two computed values exactly equal.',
+    example: `#include <stdio.h>
+#include <math.h>
+
+int main(void)
+{
+    double a = 0.1 + 0.2, b = 0.3;
+
+    printf("a == b ? %s\\n", a == b ? "yes" : "no");
+    printf("close enough ? %s\\n", fabs(a - b) < 1e-9 ? "yes" : "no");
+    return 0;
+}
+`,
+    see: ['abs', 'labs', 'DBL_EPSILON'],
+  },
+  floor: {
+    text: 'floor(x) returns the largest whole number not greater than x, as a double. It rounds down, towards negative infinity: floor(2.9) is 2 and floor(-2.1) is -3.\n\nThat differs from converting to int, which truncates towards zero: (int)-2.1 is -2.\n\nC89 has no round function. floor(x + 0.5) rounds to the nearest whole number, with halves going up.',
+    example: `#include <stdio.h>
+#include <math.h>
+
+int main(void)
+{
+    double x = -2.5;
+
+    printf("floor(%g) = %g, (int)%g = %d\\n", x, floor(x), x, (int)x);
+    printf("2.5 rounded = %g\\n", floor(2.5 + 0.5));
+    return 0;
+}
+`,
+    see: ['ceil', 'modf', 'fmod'],
+  },
+  fmod: {
+    text: 'fmod(x, y) returns the remainder of x / y for doubles: x - n * y where n is x / y truncated towards zero. The result has the same sign as x.\n\nThe % operator only works on integers; fmod is its floating-point cousin. fmod(7.5, 2) is 1.5 and fmod(-7.5, 2) is -1.5.\n\nIf y is 0 the result is implementation-defined: here it is a NaN with errno set to EDOM.',
+    example: `#include <stdio.h>
+#include <math.h>
+
+int main(void)
+{
+    double angle = 765.0;
+
+    printf("fmod(7.5, 2) = %g\\n", fmod(7.5, 2.0));
+    printf("%g degrees is %g degrees\\n", angle, fmod(angle, 360.0));
+    return 0;
+}
+`,
+    see: ['%', 'modf', 'floor'],
+  },
+});
+
 // ==== ide/ref/stdio.js ====
 // Reference texts for <stdio.h>.
 SEE.RefText = Object.assign(SEE.RefText || {}, {
@@ -13461,6 +14239,250 @@ int main(void)
 }
 `,
     see: ['sizeof', 'strcpy', 'size_t'],
+  },
+});
+
+// ==== ide/ref/time.js ====
+/* The C reference: <time.h> */
+SEE.RefText = Object.assign(SEE.RefText || {}, {
+  clock_t: {
+    text: 'clock_t is the arithmetic type that clock() returns: processor time measured in "clock ticks". Here it is a long.\n\nDivide a difference of two clock_t values by CLOCKS_PER_SEC to get seconds, and do the division in floating point, (double)(end - start) / CLOCKS_PER_SEC, or a short interval rounds down to 0.',
+    example: `#include <stdio.h>
+#include <time.h>
+
+int main(void)
+{
+    clock_t start = clock();
+    long i, sum = 0;
+
+    for (i = 0; i < 100000L; i++)
+        sum += i % 7;
+    printf("sum %ld after %ld ticks\\n", sum, (long)(clock() - start));
+    return 0;
+}
+`,
+    see: ['clock', 'CLOCKS_PER_SEC', 'time_t'],
+  },
+  time_t: {
+    text: 'time_t is the arithmetic type that holds a calendar time, as returned by time(). Here it is a long counting the seconds since 1 January 1970, 00:00:00 UTC (the Unix epoch), but the C standard does not promise that, so portable code converts with localtime or gmtime and subtracts with difftime.\n\nA 32-bit signed time_t runs out in January 2038.',
+    example: `#include <stdio.h>
+#include <time.h>
+
+int main(void)
+{
+    time_t t = 0;
+
+    printf("time_t 0 is %s", asctime(gmtime(&t)));
+    printf("a time_t has %d bytes here\\n", (int)sizeof(time_t));
+    return 0;
+}
+`,
+    see: ['time', 'difftime', 'gmtime', 'localtime', 'tm'],
+  },
+  tm: {
+    header: 'time.h',
+    kind: 'type',
+    sig: 'struct tm { int tm_sec, tm_min, tm_hour, tm_mday, tm_mon, tm_year, tm_wday, tm_yday, tm_isdst; };',
+    text: 'struct tm holds a calendar time broken into its parts. localtime and gmtime fill one in; mktime, asctime and strftime read one.\n\nThe fields have surprising origins: tm_mon counts months from 0 (January is 0, December 11), tm_year counts years since 1900 (2024 is 124), tm_wday counts days since Sunday (0 to 6) and tm_yday days since 1 January (0 to 365). tm_mday is the only one that starts at 1. tm_sec can be 60 for a leap second. tm_isdst is positive when daylight saving time is in effect, 0 when it is not and negative when unknown.\n\nWhen you build one yourself, set every field (struct tm t = {0}; is a quick way) and set tm_isdst to -1 to let mktime decide. In See\'s memory picture a struct tm is nine ints in a row, 36 bytes.',
+    example: `#include <stdio.h>
+#include <time.h>
+
+int main(void)
+{
+    struct tm t = {0};
+
+    t.tm_year = 2000 - 1900;
+    t.tm_mon = 11;
+    t.tm_mday = 25;
+    t.tm_isdst = -1;
+    mktime(&t);
+    printf("25 December 2000 was day %d of the year, weekday %d\\n", t.tm_yday + 1, t.tm_wday);
+    return 0;
+}
+`,
+    see: ['mktime', 'localtime', 'gmtime', 'strftime', 'asctime'],
+  },
+  CLOCKS_PER_SEC: {
+    text: 'CLOCKS_PER_SEC is the number of clock_t ticks in one second of processor time. Here it is 1000000, so one tick is a microsecond.\n\nIt is a long, so (end - start) / CLOCKS_PER_SEC is an integer division that truncates. Convert to double first for a fractional number of seconds.',
+    example: `#include <stdio.h>
+#include <time.h>
+
+int main(void)
+{
+    clock_t start = clock();
+    double x = 0;
+    int i;
+
+    for (i = 1; i < 20000; i++)
+        x += 1.0 / i;
+    printf("x = %f, took %.6f s of processor time\\n", x, (double)(clock() - start) / CLOCKS_PER_SEC);
+    return 0;
+}
+`,
+    see: ['clock', 'clock_t'],
+  },
+  clock: {
+    text: 'clock() returns the processor time the program has used so far, in clock_t ticks, or (clock_t)-1 if it is not available.\n\nThe value at program start is not necessarily 0, so only the difference between two calls means anything. Divide that difference by CLOCKS_PER_SEC for seconds.\n\nIt measures time spent computing, not time on the wall clock: a program waiting for input uses almost none. For calendar time use time().',
+    example: `#include <stdio.h>
+#include <time.h>
+
+int main(void)
+{
+    clock_t a, b;
+    long i, n = 0;
+
+    a = clock();
+    for (i = 0; i < 50000L; i++)
+        n += i & 1;
+    b = clock();
+    printf("%ld odd numbers, %.6f seconds\\n", n, (double)(b - a) / CLOCKS_PER_SEC);
+    return 0;
+}
+`,
+    see: ['CLOCKS_PER_SEC', 'clock_t', 'time'],
+  },
+  difftime: {
+    text: 'difftime(time1, time0) returns time1 - time0 in seconds, as a double.\n\nNotice the order: later time first. On this machine subtracting two time_t values directly gives the same answer, but difftime is the portable way since the standard does not say what a time_t counts.',
+    example: `#include <stdio.h>
+#include <time.h>
+
+int main(void)
+{
+    time_t start = 0, end = 90061;
+
+    printf("%.0f seconds apart\\n", difftime(end, start));
+    printf("that is %.2f days\\n", difftime(end, start) / 86400);
+    return 0;
+}
+`,
+    see: ['time', 'time_t', 'mktime'],
+  },
+  mktime: {
+    text: 'mktime(&t) converts a struct tm holding local time into a time_t. It returns (time_t)-1 if the time cannot be represented.\n\nIt also normalises the structure: fields out of range are carried over (tm_mday = 32 in January becomes 1 February) and tm_wday and tm_yday are filled in. So it doubles as a calendar calculator: add 100 to tm_mday, call mktime, and read the new date.\n\nIt ignores the incoming tm_wday and tm_yday. Set tm_isdst to -1 so it works out daylight saving time itself.',
+    example: `#include <stdio.h>
+#include <time.h>
+
+int main(void)
+{
+    struct tm t = {0};
+    char buf[40];
+
+    t.tm_year = 2024 - 1900;
+    t.tm_mon = 0;
+    t.tm_mday = 1 + 100;
+    t.tm_hour = 12;
+    t.tm_isdst = -1;
+    if (mktime(&t) == (time_t)-1)
+        return 1;
+    strftime(buf, sizeof buf, "%A %d %B %Y", &t);
+    printf("100 days after 1 January 2024: %s\\n", buf);
+    return 0;
+}
+`,
+    see: ['tm', 'localtime', 'strftime', 'time_t'],
+  },
+  time: {
+    text: 'time(&t) returns the current calendar time as a time_t, and also stores it in t when the pointer is not NULL. time(NULL) is the usual call. It returns (time_t)-1 if the time is not available.\n\nThe value changes from run to run, so programs that print it give different output each time. A classic use is seeding the random number generator: srand((unsigned)time(NULL)).\n\nTo show the time, convert it with localtime and format it with strftime, or use ctime for a quick fixed format.',
+    example: `#include <stdio.h>
+#include <time.h>
+
+int main(void)
+{
+    time_t now = time(NULL);
+    struct tm *lt = localtime(&now);
+
+    printf("seconds since 1970: %ld\\n", (long)now);
+    printf("the year is %d\\n", lt->tm_year + 1900);
+    return 0;
+}
+`,
+    see: ['localtime', 'ctime', 'difftime', 'srand'],
+  },
+  asctime: {
+    text: 'asctime(&t) converts a struct tm into a string of the fixed form "Sun Sep 16 01:03:52 1973\\n", 26 characters including the newline and the NUL terminator.\n\nThe string lives in a static buffer inside the library. The next call to asctime or ctime overwrites it, so copy it out if you need to keep it, and never free it.\n\nThe string already ends in a newline; printf("%s", asctime(...)) needs no \\n of its own. For any other format use strftime.',
+    example: `#include <stdio.h>
+#include <time.h>
+
+int main(void)
+{
+    struct tm t = {0};
+
+    t.tm_year = 69;
+    t.tm_mon = 6;
+    t.tm_mday = 20;
+    t.tm_hour = 20;
+    t.tm_min = 17;
+    t.tm_wday = 0;
+    printf("%s", asctime(&t));
+    return 0;
+}
+`,
+    see: ['ctime', 'strftime', 'tm'],
+  },
+  ctime: {
+    text: 'ctime(&t) converts a time_t into the same fixed string as asctime, in local time. It is exactly asctime(localtime(&t)).\n\nNote that it takes a pointer to the time_t, not the time_t itself. The result is a static buffer that the next call overwrites, and it ends in a newline.',
+    example: `#include <stdio.h>
+#include <time.h>
+
+int main(void)
+{
+    time_t t = 1000000000L;
+
+    printf("one billion seconds: %s", ctime(&t));
+    return 0;
+}
+`,
+    see: ['asctime', 'localtime', 'time'],
+  },
+  gmtime: {
+    text: 'gmtime(&t) converts a time_t into a struct tm in Coordinated Universal Time (UTC). It returns a pointer to a static struct tm inside the library, or NULL if the time cannot be converted.\n\nThe same static structure is shared with localtime: a call to either one overwrites what the other returned. Copy the structure (struct tm mine = *gmtime(&t);) if you need two at once.',
+    example: `#include <stdio.h>
+#include <time.h>
+
+int main(void)
+{
+    time_t t = 86400L * 365;
+    struct tm u = *gmtime(&t);
+
+    printf("%04d-%02d-%02d %02d:%02d UTC\\n", u.tm_year + 1900, u.tm_mon + 1, u.tm_mday, u.tm_hour, u.tm_min);
+    return 0;
+}
+`,
+    see: ['localtime', 'tm', 'mktime', 'asctime'],
+  },
+  localtime: {
+    text: 'localtime(&t) converts a time_t into a struct tm in the local time zone. It returns a pointer to a static structure that the next call to localtime or gmtime overwrites.\n\nRemember the field origins when printing: add 1900 to tm_year and 1 to tm_mon.\n\nThe pointer points into the library\'s own memory, not the heap, so never free it.',
+    example: `#include <stdio.h>
+#include <time.h>
+
+int main(void)
+{
+    time_t t = 0;
+    struct tm *p = localtime(&t);
+
+    printf("the epoch here: %d-%02d-%02d %02d:%02d\\n", p->tm_year + 1900, p->tm_mon + 1, p->tm_mday, p->tm_hour, p->tm_min);
+    return 0;
+}
+`,
+    see: ['gmtime', 'mktime', 'strftime', 'tm'],
+  },
+  strftime: {
+    text: 'strftime(s, maxsize, format, &t) formats the time in t into the array s, following format the way printf follows its format. It writes at most maxsize characters including the NUL terminator, and returns the number of characters written not counting the NUL. If the result did not fit it returns 0 and the contents of s are undefined.\n\nCommon conversions: %Y year, %m month 01 to 12, %d day 01 to 31, %H hour 00 to 23, %M minute, %S second, %A and %a weekday name, %B and %b month name, %j day of the year, %p AM or PM, %% a percent sign.\n\nPass sizeof buf as maxsize when s is an array, so the size can never be wrong.',
+    example: `#include <stdio.h>
+#include <time.h>
+
+int main(void)
+{
+    time_t t = 1234567890L;
+    char buf[64];
+    size_t n;
+
+    n = strftime(buf, sizeof buf, "%Y-%m-%d %H:%M:%S, a %A in %B", gmtime(&t));
+    printf("%s (%d characters)\\n", buf, (int)n);
+    return 0;
+}
+`,
+    see: ['asctime', 'localtime', 'gmtime', 'tm'],
   },
 });
 
