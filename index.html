@@ -11032,6 +11032,57 @@ int main(void)
   };
 })(SEE);
 
+// ==== ide/ref/assert.js ====
+/* The C reference: <assert.h> */
+SEE.RefText = Object.assign(SEE.RefText || {}, {
+  assert: {
+    text: 'assert(expression) checks something the programmer believes must be true at that point. If the expression is true (non-zero) nothing happens. If it is false, the program writes a message naming the expression, the source file and the line number to stderr, and then calls abort, which ends the program.\n\nIt is for catching bugs, not for handling errors that can really happen: a missing file or bad user input deserve a proper message, not an assert. Typical uses are checking a function\'s preconditions (assert(p != NULL)) and loop invariants.\n\nWhen NDEBUG is defined before <assert.h> is included, assert expands to nothing and its expression is not evaluated at all. So never put work with side effects inside it: assert(fclose(f) == 0) would stop closing the file in a release build.\n\nIn See a failed assertion stops the program on the assert line, so you can look at the variables that made it false.',
+    example: `#include <stdio.h>
+#include <assert.h>
+
+static int average(const int *a, int n)
+{
+    int i, sum = 0;
+
+    assert(a != NULL);
+    assert(n > 0);
+    for (i = 0; i < n; i++)
+        sum += a[i];
+    return sum / n;
+}
+
+int main(void)
+{
+    int marks[] = { 70, 85, 90 };
+
+    printf("average %d\\n", average(marks, 3));
+    return 0;
+}
+`,
+    see: ['NDEBUG', 'abort', 'SIGABRT'],
+  },
+  NDEBUG: {
+    header: 'assert.h',
+    kind: 'macro',
+    sig: '#define NDEBUG',
+    text: 'NDEBUG is not defined by any header: you define it, either with #define NDEBUG before #include <assert.h> or with -DNDEBUG on the compiler\'s command line. When it is defined, every assert becomes ((void)0) and checks nothing.\n\n<assert.h> is unusual: it may be included several times, and each time it redefines assert according to whether NDEBUG is defined at that moment.',
+    example: `#define NDEBUG
+#include <stdio.h>
+#include <assert.h>
+
+int main(void)
+{
+    int calls = 0;
+
+    assert(++calls > 100);
+    printf("with NDEBUG the assert was skipped; calls = %d\\n", calls);
+    return 0;
+}
+`,
+    see: ['assert', 'abort'],
+  },
+});
+
 // ==== ide/ref/ctype.js ====
 /* The C reference: <ctype.h> */
 SEE.RefText = Object.assign(SEE.RefText || {}, {
@@ -11293,6 +11344,270 @@ int main(void)
 }
 `,
     see: ['tolower', 'islower', 'isupper'],
+  },
+});
+
+// ==== ide/ref/errno.js ====
+/* The C reference: <errno.h> */
+SEE.RefText = Object.assign(SEE.RefText || {}, {
+  errno: {
+    header: 'errno.h',
+    kind: 'variable',
+    sig: 'extern int errno;',
+    text: 'errno is an int that library functions set to a positive error number when something goes wrong: ENOENT when a file does not exist, ERANGE when a number does not fit, and so on. strerror(errno) turns the number into a message, and perror prints that message for you.\n\nNo library function ever sets errno to 0, and a function that succeeds may still change it. So errno only means something right after a call that reported failure through its return value (fopen returned NULL, strtol returned LONG_MAX). For functions like strtol and the math functions, whose return value cannot signal an error by itself, set errno = 0 just before the call and test it just after.\n\nSave errno in a variable if you need it later: a printf in between may change it. And read it in a separate statement from the call that sets it, because the order in which a function\'s arguments are evaluated is unspecified.',
+    example: `#include <stdio.h>
+#include <string.h>
+#include <errno.h>
+
+int main(void)
+{
+    FILE *f = fopen("/no/such/file.txt", "r");
+    int saved;
+
+    if (f == NULL) {
+        saved = errno;
+        printf("fopen failed: errno %d, %s\\n", saved, strerror(saved));
+    }
+    return 0;
+}
+`,
+    see: ['strerror', 'perror', 'ENOENT', 'ERANGE', 'EDOM'],
+  },
+  EPERM: {
+    text: 'EPERM (1), "Operation not permitted": the operation is forbidden for this program regardless of file permissions, typically something only the system administrator may do. Compare EACCES, which is about the permissions of a particular file.\n\nNo function in See\'s library sets it; it is here because programs written for Unix test for it.',
+    example: `#include <stdio.h>
+#include <string.h>
+#include <errno.h>
+
+int main(void)
+{
+    printf("EPERM = %d: %s\\n", EPERM, strerror(EPERM));
+    return 0;
+}
+`,
+    see: ['EACCES', 'errno', 'strerror'],
+  },
+  ENOENT: {
+    text: 'ENOENT (2), "No such file or directory": a file name given to fopen (for reading), remove or rename does not exist, or one of the folders in its path does not.\n\nIt is the error you get most often. Check the spelling, and whether the path is relative to the current folder or absolute.',
+    example: `#include <stdio.h>
+#include <errno.h>
+
+int main(void)
+{
+    if (fopen("/missing.txt", "r") == NULL && errno == ENOENT)
+        printf("no file called /missing.txt\\n");
+    return 0;
+}
+`,
+    see: ['fopen', 'remove', 'perror', 'errno'],
+  },
+  EIO: {
+    text: 'EIO (5), "Input/output error": the device itself failed while reading or writing, for example a disk error. The program can do little about it except report it.\n\nSee\'s file system never fails this way, so you will only see it in programs that set it themselves.',
+    example: `#include <stdio.h>
+#include <string.h>
+#include <errno.h>
+
+int main(void)
+{
+    printf("EIO = %d: %s\\n", EIO, strerror(EIO));
+    return 0;
+}
+`,
+    see: ['errno', 'ferror'],
+  },
+  EBADF: {
+    text: 'EBADF (9), "Bad file descriptor": the stream cannot do what was asked of it. In See you get it when writing to a stream opened only for reading, reading from one opened only for writing, or calling ftell or fseek on the terminal.\n\nThe stream\'s error indicator is set as well, so ferror reports it.',
+    example: `#include <stdio.h>
+#include <errno.h>
+
+int main(void)
+{
+    FILE *f = fopen("/data/numbers.txt", "r");
+
+    if (f == NULL)
+        return 1;
+    errno = 0;
+    if (fputc('x', f) == EOF && errno == EBADF)
+        printf("cannot write to a stream opened with \\"r\\"\\n");
+    fclose(f);
+    return 0;
+}
+`,
+    see: ['fopen', 'ferror', 'ftell'],
+  },
+  ENOMEM: {
+    text: 'ENOMEM (12), "Cannot allocate memory": there is not enough memory for the request. In See, malloc, calloc and realloc set it when they return NULL.\n\nThe C standard does not require malloc to set errno at all, so the portable test is the NULL return value.',
+    example: `#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+
+int main(void)
+{
+    void *p;
+
+    errno = 0;
+    p = malloc(2000000000u);
+    if (p == NULL)
+        printf("malloc failed%s\\n", errno == ENOMEM ? ": out of memory" : "");
+    free(p);
+    return 0;
+}
+`,
+    see: ['malloc', 'calloc', 'realloc', 'heap'],
+  },
+  EACCES: {
+    text: 'EACCES (13), "Permission denied": the file exists but the program is not allowed to do this to it, such as opening a read-only file for writing or creating a file in a read-only folder.\n\nIn See the /locked folder is read-only, so you can try it there.',
+    example: `#include <stdio.h>
+#include <string.h>
+#include <errno.h>
+
+int main(void)
+{
+    FILE *f = fopen("/locked/readme.txt", "w");
+
+    if (f == NULL)
+        printf("errno %d: %s\\n", errno, errno == EACCES ? "permission denied" : "other error");
+    return 0;
+}
+`,
+    see: ['fopen', 'EPERM', 'remove'],
+  },
+  EEXIST: {
+    text: 'EEXIST (17), "File exists": the operation would create something that is already there.\n\nIn C89 neither fopen nor rename is required to report it: fopen with "w" simply truncates an existing file, and what rename does when the new name exists is implementation-defined.',
+    example: `#include <stdio.h>
+#include <string.h>
+#include <errno.h>
+
+int main(void)
+{
+    printf("EEXIST = %d: %s\\n", EEXIST, strerror(EEXIST));
+    return 0;
+}
+`,
+    see: ['rename', 'fopen', 'errno'],
+  },
+  ENOTDIR: {
+    text: 'ENOTDIR (20), "Not a directory": a part of a path that should be a folder is an ordinary file, as in /data/numbers.txt/x.\n\nSee\'s fopen reports this case as ENOENT instead, which is also a reasonable reading: the file does not exist.',
+    example: `#include <stdio.h>
+#include <string.h>
+#include <errno.h>
+
+int main(void)
+{
+    printf("ENOTDIR = %d: %s\\n", ENOTDIR, strerror(ENOTDIR));
+    return 0;
+}
+`,
+    see: ['ENOENT', 'EISDIR', 'fopen'],
+  },
+  EISDIR: {
+    text: 'EISDIR (21), "Is a directory": the program tried to open a folder as if it were a file. fopen("/data", "r") gives it in See.\n\nC89 has no functions for listing folders; they come from the operating system (opendir on Unix).',
+    example: `#include <stdio.h>
+#include <errno.h>
+
+int main(void)
+{
+    if (fopen("/data", "r") == NULL && errno == EISDIR)
+        printf("/data is a folder, not a file\\n");
+    return 0;
+}
+`,
+    see: ['fopen', 'ENOTDIR'],
+  },
+  EINVAL: {
+    text: 'EINVAL (22), "Invalid argument": an argument made no sense. In See: an fopen mode that is not one of r, w, a with optional + and b, an fseek whence that is not SEEK_SET, SEEK_CUR or SEEK_END, or a seek to before the start of a file.',
+    example: `#include <stdio.h>
+#include <errno.h>
+
+int main(void)
+{
+    FILE *f = fopen("/data/numbers.txt", "r");
+
+    if (f == NULL)
+        return 1;
+    errno = 0;
+    if (fseek(f, -10L, SEEK_SET) != 0 && errno == EINVAL)
+        printf("cannot seek before the start of the file\\n");
+    fclose(f);
+    return 0;
+}
+`,
+    see: ['fseek', 'fopen'],
+  },
+  EMFILE: {
+    text: 'EMFILE (24), "Too many open files": the program has reached the limit on streams open at the same time. In See that limit is FOPEN_MAX, 20 streams, and stdin, stdout and stderr count among them, so 17 files can be open at once.\n\nIt nearly always means a file is opened in a loop and never closed. Every fopen needs an fclose.',
+    example: `#include <stdio.h>
+#include <errno.h>
+
+int main(void)
+{
+    FILE *fs[40];
+    int i, n;
+
+    for (n = 0; n < 40; n++)
+        if ((fs[n] = fopen("/data/numbers.txt", "r")) == NULL)
+            break;
+    if (n < 40 && errno == EMFILE)
+        printf("fopen failed after %d files: too many open\\n", n);
+    for (i = 0; i < n; i++)
+        fclose(fs[i]);
+    return 0;
+}
+`,
+    see: ['fopen', 'fclose', 'FOPEN_MAX'],
+  },
+  ENOSPC: {
+    text: 'ENOSPC (28), "No space left on device": a write failed because the disk is full. In See the browser file system has a limit on total size and on the number of files.\n\nBecause output is buffered, the failure may only show up at fflush or fclose, so check their return values when writing important data.',
+    example: `#include <stdio.h>
+#include <string.h>
+#include <errno.h>
+
+int main(void)
+{
+    printf("ENOSPC = %d: %s\\n", ENOSPC, strerror(ENOSPC));
+    return 0;
+}
+`,
+    see: ['fclose', 'fflush', 'ferror'],
+  },
+  EDOM: {
+    text: 'EDOM (33), "Numerical argument out of domain": a math function was given an argument for which it has no answer, such as sqrt(-1.0), log(-1.0) or acos(2.0). The function returns a NaN, which printf shows as nan.\n\nSet errno to 0 before the call and test it afterwards; the return value alone does not say an error happened.',
+    example: `#include <stdio.h>
+#include <math.h>
+#include <errno.h>
+
+int main(void)
+{
+    double r;
+
+    errno = 0;
+    r = sqrt(-4.0);
+    if (errno == EDOM)
+        printf("sqrt(-4) is outside the domain, result %f\\n", r);
+    return 0;
+}
+`,
+    see: ['ERANGE', 'sqrt', 'log', 'errno'],
+  },
+  ERANGE: {
+    text: 'ERANGE (34), "Numerical result out of range": a result is too large (or too small) to represent. The math functions return HUGE_VAL on overflow; strtol returns LONG_MAX or LONG_MIN and strtoul ULONG_MAX; strtod returns HUGE_VAL or 0.\n\nThose return values are also legitimate results, so the only reliable test is errno: set it to 0 before the call and check it afterwards.',
+    example: `#include <stdio.h>
+#include <stdlib.h>
+#include <limits.h>
+#include <errno.h>
+
+int main(void)
+{
+    long v;
+
+    errno = 0;
+    v = strtol("99999999999", NULL, 10);
+    if (errno == ERANGE)
+        printf("too big for a long; strtol gave %ld (LONG_MAX is %ld)\\n", v, LONG_MAX);
+    return 0;
+}
+`,
+    see: ['EDOM', 'strtol', 'HUGE_VAL', 'LONG_MAX'],
   },
 });
 
@@ -11807,6 +12122,452 @@ int main(void)
 }
 `,
     see: ['%', 'modf', 'floor'],
+  },
+});
+
+// ==== ide/ref/setjmp.js ====
+/* The C reference: <setjmp.h> */
+SEE.RefText = Object.assign(SEE.RefText || {}, {
+  jmp_buf: {
+    text: 'jmp_buf is the array type that setjmp fills in and longjmp reads: a snapshot of where the program was, so that it can come back there later. Here it is an array of 6 ints holding a check word, the depth of the call stack, the stack pointer, the frame pointer and the address to resume at.\n\nBecause it is an array type, passing a jmp_buf to a function passes a pointer to it, which is why setjmp(env) can fill it in without an &.\n\nThe saved state is only valid while the function that called setjmp is still running. Once that function returns, its stack frame is gone and a longjmp to the jmp_buf is undefined behaviour.',
+    example: `#include <stdio.h>
+#include <setjmp.h>
+
+static jmp_buf env;
+
+int main(void)
+{
+    printf("a jmp_buf here is %d bytes\\n", (int)sizeof(jmp_buf));
+    if (setjmp(env) == 0)
+        printf("snapshot taken\\n");
+    return 0;
+}
+`,
+    see: ['setjmp', 'longjmp'],
+  },
+  setjmp: {
+    text: 'setjmp(env) saves the current point of execution in env and returns 0. Later, longjmp(env, val) makes that same setjmp call return a second time, now with the value val. So the code after setjmp must look at the return value to know whether it is running for the first time or has just jumped back.\n\nThe standard only allows setjmp in a few places: as the whole controlling expression of if, switch, while or do, compared with a constant (setjmp(env) == 0), negated with !, or as a whole expression statement. Do not store its result with = in a larger expression.\n\nLocal variables of the calling function that were changed between setjmp and longjmp have indeterminate values after the jump unless they are declared volatile.\n\nIn See you can watch it happen: after longjmp the call stack shrinks back to the function that called setjmp, and the frames in between disappear from the memory picture without ever returning.',
+    example: `#include <stdio.h>
+#include <setjmp.h>
+
+static jmp_buf on_error;
+
+static int divide(int a, int b)
+{
+    if (b == 0)
+        longjmp(on_error, 1);
+    return a / b;
+}
+
+int main(void)
+{
+    if (setjmp(on_error) == 0) {
+        printf("10 / 2 = %d\\n", divide(10, 2));
+        printf("10 / 0 = %d\\n", divide(10, 0));
+        printf("never printed\\n");
+    } else {
+        printf("caught a division by zero\\n");
+    }
+    return 0;
+}
+`,
+    see: ['longjmp', 'jmp_buf', 'stack frame', 'volatile'],
+  },
+  longjmp: {
+    text: 'longjmp(env, val) jumps back to the setjmp call that filled env, throwing away every stack frame created since. That setjmp then returns val. If val is 0 it returns 1 instead, so the code can always tell a jump from the first return.\n\nlongjmp never returns. It is C\'s nearest thing to throwing an exception: a deeply nested function can give up and land straight back in an error handler.\n\nThe function that called setjmp must still be active. Jumping to a jmp_buf whose function has already returned is undefined behaviour, as is jumping out of a signal handler that interrupted library code. Anything the skipped functions allocated with malloc or opened with fopen is not cleaned up for you.',
+    example: `#include <stdio.h>
+#include <setjmp.h>
+
+static jmp_buf env;
+
+static void depth(int n)
+{
+    printf("going down: %d\\n", n);
+    if (n == 3)
+        longjmp(env, n * 10);
+    depth(n + 1);
+    printf("not reached\\n");
+}
+
+int main(void)
+{
+    int r = setjmp(env);
+
+    if (r == 0)
+        depth(1);
+    else
+        printf("back in main with %d\\n", r);
+    return 0;
+}
+`,
+    see: ['setjmp', 'jmp_buf', 'exit'],
+  },
+});
+
+// ==== ide/ref/signal.js ====
+/* The C reference: <signal.h> */
+SEE.RefText = Object.assign(SEE.RefText || {}, {
+  signal: {
+    text: 'signal(sig, func) chooses what happens when signal number sig arrives. func is either SIG_DFL (the default action, usually ending the program), SIG_IGN (ignore the signal) or a pointer to your own handler, a function taking the signal number as an int and returning nothing.\n\nIt returns the previous setting for that signal, or SIG_ERR if the request failed, for example for a signal number that does not exist. The declaration looks frightening because signal both takes and returns a pointer to a function; with typedef void (*handler)(int); it reads handler signal(int sig, handler func).\n\nA handler should do very little: setting a variable of type volatile sig_atomic_t is the one thing the standard fully allows. Calling printf or malloc from a handler is not safe in general. When the handler is entered the setting may be reset to SIG_DFL, so a handler that wants to stay installed calls signal again.',
+    example: `#include <stdio.h>
+#include <signal.h>
+
+static volatile sig_atomic_t seen = 0;
+
+static void on_signal(int sig)
+{
+    seen = sig;
+}
+
+int main(void)
+{
+    if (signal(SIGINT, on_signal) == SIG_ERR) {
+        printf("could not install the handler\\n");
+        return 1;
+    }
+    raise(SIGINT);
+    printf("the handler saw signal %d\\n", (int)seen);
+    return 0;
+}
+`,
+    see: ['raise', 'SIG_DFL', 'SIG_IGN', 'SIG_ERR', 'sig_atomic_t'],
+  },
+  raise: {
+    text: 'raise(sig) sends signal sig to the program itself. It returns 0 on success and non-zero on failure.\n\nWhat happens next depends on the setting made with signal: the handler runs and then raise returns, or the signal is ignored, or the default action happens, which for most signals ends the program. abort() is in effect raise(SIGABRT).\n\nraise is the portable way to try out a signal handler without waiting for a real event.',
+    example: `#include <stdio.h>
+#include <signal.h>
+
+static volatile sig_atomic_t count = 0;
+
+static void handler(int sig)
+{
+    (void)sig;
+    count++;
+    signal(SIGTERM, handler);
+}
+
+int main(void)
+{
+    signal(SIGTERM, handler);
+    raise(SIGTERM);
+    raise(SIGTERM);
+    signal(SIGTERM, SIG_IGN);
+    raise(SIGTERM);
+    printf("handled %d times, the third was ignored\\n", (int)count);
+    return 0;
+}
+`,
+    see: ['signal', 'abort', 'SIGABRT'],
+  },
+  sig_atomic_t: {
+    text: 'sig_atomic_t is an integer type that can be read and written in one indivisible step, even when a signal arrives in the middle of the program. Here it is an int.\n\nDeclare a variable shared between a signal handler and the rest of the program as volatile sig_atomic_t. volatile tells the compiler that the value can change behind its back, so it is read from memory every time. Only store small values in it; the standard guarantees at least 0 to 127.',
+    example: `#include <stdio.h>
+#include <signal.h>
+
+static volatile sig_atomic_t stop = 0;
+
+static void on_term(int sig)
+{
+    (void)sig;
+    stop = 1;
+}
+
+int main(void)
+{
+    int steps = 0;
+
+    signal(SIGTERM, on_term);
+    while (!stop) {
+        steps++;
+        if (steps == 5)
+            raise(SIGTERM);
+    }
+    printf("stopped after %d steps\\n", steps);
+    return 0;
+}
+`,
+    see: ['signal', 'volatile'],
+  },
+  SIG_DFL: {
+    text: 'SIG_DFL, passed as the handler to signal, restores the default action for a signal. For the signals in C89 the default is to end the program abnormally: SIGINT, SIGTERM, SIGABRT, SIGFPE, SIGSEGV and SIGILL all terminate.\n\nIt is a function pointer value that no real function has, so it can be compared with what signal returns.',
+    example: `#include <stdio.h>
+#include <signal.h>
+
+static void mine(int sig)
+{
+    (void)sig;
+}
+
+int main(void)
+{
+    void (*old)(int);
+
+    signal(SIGINT, mine);
+    old = signal(SIGINT, SIG_DFL);
+    printf("previous handler was %s\\n", old == mine ? "mine" : "something else");
+    printf("SIGINT is back to the default action\\n");
+    return 0;
+}
+`,
+    see: ['signal', 'SIG_IGN', 'SIG_ERR'],
+  },
+  SIG_ERR: {
+    text: 'SIG_ERR is the value signal returns when it cannot do what was asked, for example for a signal number that does not exist. Always compare the result of signal with SIG_ERR rather than with NULL.\n\nNever pass SIG_ERR to signal yourself; it is only ever a return value.',
+    example: `#include <stdio.h>
+#include <signal.h>
+
+int main(void)
+{
+    if (signal(12345, SIG_IGN) == SIG_ERR)
+        printf("signal 12345 does not exist\\n");
+    if (signal(SIGINT, SIG_IGN) != SIG_ERR)
+        printf("SIGINT will now be ignored\\n");
+    return 0;
+}
+`,
+    see: ['signal', 'SIG_DFL', 'SIG_IGN'],
+  },
+  SIG_IGN: {
+    text: 'SIG_IGN, passed as the handler to signal, makes the program ignore that signal: raising it does nothing.\n\nSome signals cannot sensibly be ignored. Ignoring SIGSEGV or SIGFPE caused by a real fault leaves the program with nowhere to go; the result is undefined.',
+    example: `#include <stdio.h>
+#include <signal.h>
+
+int main(void)
+{
+    signal(SIGINT, SIG_IGN);
+    raise(SIGINT);
+    printf("still running after SIGINT\\n");
+    return 0;
+}
+`,
+    see: ['signal', 'SIG_DFL', 'raise'],
+  },
+  SIGINT: {
+    text: 'SIGINT (2) is the interactive attention signal: on a terminal it is what Ctrl+C sends. Its default action ends the program.\n\nA program that wants to finish cleanly on Ctrl+C installs a handler that sets a volatile sig_atomic_t flag, and its main loop checks the flag.',
+    example: `#include <stdio.h>
+#include <signal.h>
+
+static volatile sig_atomic_t interrupted = 0;
+
+static void on_int(int sig)
+{
+    (void)sig;
+    interrupted = 1;
+}
+
+int main(void)
+{
+    signal(SIGINT, on_int);
+    raise(SIGINT);
+    if (interrupted)
+        printf("interrupted: saving work and leaving\\n");
+    return 0;
+}
+`,
+    see: ['signal', 'SIGTERM', 'sig_atomic_t'],
+  },
+  SIGILL: {
+    text: 'SIGILL (4) signals an illegal instruction: the processor met something it cannot execute, typically because a function pointer pointed at data, or memory holding code was overwritten. The default action ends the program.\n\nThere is rarely anything sensible a handler can do; the program has lost track of what it is running.',
+    example: `#include <stdio.h>
+#include <signal.h>
+
+int main(void)
+{
+    printf("SIGILL is signal number %d\\n", SIGILL);
+    return 0;
+}
+`,
+    see: ['signal', 'SIGSEGV'],
+  },
+  SIGABRT: {
+    text: 'SIGABRT (6) is the abnormal termination signal. abort() raises it, and so does a failed assert.\n\nA handler for SIGABRT may run some last-moment logging, but if it returns, abort still ends the program.',
+    example: `#include <stdio.h>
+#include <signal.h>
+
+static void on_abort(int sig)
+{
+    (void)sig;
+}
+
+int main(void)
+{
+    signal(SIGABRT, on_abort);
+    raise(SIGABRT);
+    printf("raise(SIGABRT) with a handler came back; abort() would not\\n");
+    return 0;
+}
+`,
+    see: ['abort', 'assert', 'raise'],
+  },
+  SIGFPE: {
+    text: 'SIGFPE (8) signals an erroneous arithmetic operation. Despite the name ("floating-point exception") the usual cause is integer division by zero, or dividing INT_MIN by -1. Floating-point division by zero normally gives inf or nan without any signal.\n\nThe default action ends the program. See stops at the division and reports "integer division by zero".',
+    example: `#include <stdio.h>
+#include <signal.h>
+
+int main(void)
+{
+    int a = 7, b = 0;
+
+    if (b != 0)
+        printf("%d\\n", a / b);
+    else
+        printf("checked first: dividing by zero would raise SIGFPE (%d)\\n", SIGFPE);
+    return 0;
+}
+`,
+    see: ['signal', '/', 'undefined behaviour'],
+  },
+  SIGSEGV: {
+    text: 'SIGSEGV (11) is the segmentation violation: an access to memory the program does not own, such as dereferencing a NULL or dangling pointer or running far off the end of an array. The default action ends the program.\n\nIn See this is the fault you will meet most often. The debugger stops at the offending line, and the memory picture shows where the pointer was pointing.',
+    example: `#include <stdio.h>
+#include <signal.h>
+
+int main(void)
+{
+    int *p = NULL;
+
+    if (p == NULL)
+        printf("p is NULL; *p would raise SIGSEGV (%d)\\n", SIGSEGV);
+    return 0;
+}
+`,
+    see: ['NULL', 'dangling pointer', 'buffer overflow', 'signal'],
+  },
+  SIGTERM: {
+    text: 'SIGTERM (15) is a termination request sent to the program from outside, for example by the kill command on Unix. Its default action ends the program.\n\nUnlike SIGSEGV or SIGFPE it does not mean anything went wrong, so it is a good candidate for a handler that saves state and exits cleanly.',
+    example: `#include <stdio.h>
+#include <signal.h>
+
+static volatile sig_atomic_t quit = 0;
+
+static void on_term(int sig)
+{
+    (void)sig;
+    quit = 1;
+}
+
+int main(void)
+{
+    signal(SIGTERM, on_term);
+    raise(SIGTERM);
+    printf(quit ? "asked to stop: stopping cleanly\\n" : "running\\n");
+    return 0;
+}
+`,
+    see: ['signal', 'SIGINT', 'raise'],
+  },
+});
+
+// ==== ide/ref/stdarg.js ====
+/* The C reference: <stdarg.h> */
+SEE.RefText = Object.assign(SEE.RefText || {}, {
+  va_list: {
+    text: 'va_list is the type of the cursor that walks through the extra arguments of a function declared with ... such as int sum(int n, ...).\n\nOn this machine the arguments of a call sit one after another on the stack, in order, the first at the lowest address, each rounded up to a multiple of 4 bytes. An int takes 4 bytes, a double 8. So a va_list is simply a char pointer: va_start points it just past the last named argument, and each va_arg reads a value there and moves it on by that value\'s rounded size. Open the function\'s stack frame in See\'s memory picture and you can see the arguments lined up above it.\n\nNothing records how many extra arguments there are or what types they have. The function must find out some other way: a count passed first, a format string like printf\'s, or a sentinel value at the end.\n\nTo pass the list on to another function, such as vprintf, pass the va_list itself.',
+    example: `#include <stdio.h>
+#include <stdarg.h>
+
+static int sum(int count, ...)
+{
+    va_list ap;
+    int total = 0;
+
+    va_start(ap, count);
+    while (count-- > 0)
+        total += va_arg(ap, int);
+    va_end(ap);
+    return total;
+}
+
+int main(void)
+{
+    printf("%d\\n", sum(4, 10, 20, 30, 40));
+    return 0;
+}
+`,
+    see: ['va_start', 'va_arg', 'va_end', 'vprintf', 'stack frame'],
+  },
+  va_start: {
+    text: 'va_start(ap, last) gets ap ready to read the unnamed arguments. last must be the name of the last named parameter, the one just before the ... in the declaration.\n\nIt works by taking the address of last on the stack and stepping past it, which is why last must not be declared register and should not be a type that is promoted, such as char, short or float.\n\nEvery va_start must be matched by a va_end in the same function before it returns.',
+    example: `#include <stdio.h>
+#include <stdarg.h>
+
+static void show(const char *label, ...)
+{
+    va_list ap;
+    const char *s;
+
+    va_start(ap, label);
+    printf("%s:", label);
+    while ((s = va_arg(ap, const char *)) != NULL)
+        printf(" %s", s);
+    va_end(ap);
+    printf("\\n");
+}
+
+int main(void)
+{
+    show("fruit", "apple", "pear", "plum", (const char *)NULL);
+    return 0;
+}
+`,
+    see: ['va_arg', 'va_end', 'va_list'],
+  },
+  va_arg: {
+    text: 'va_arg(ap, type) returns the next unnamed argument, taking it to have the given type, and moves ap past it.\n\nThe type must be the type the argument has after the default argument promotions, because that is what the caller actually put on the stack: char and short arrive as int, float arrives as double. va_arg(ap, char) or va_arg(ap, float) reads the wrong number of bytes.\n\nIf the type does not match what was passed, or you read past the last argument, the behaviour is undefined: you get whatever bytes happen to be on the stack. A classic bug is passing 5 where the function reads a double; pass 5.0.',
+    example: `#include <stdio.h>
+#include <stdarg.h>
+
+static double average(int n, ...)
+{
+    va_list ap;
+    double total = 0;
+    int i;
+
+    va_start(ap, n);
+    for (i = 0; i < n; i++)
+        total += va_arg(ap, double);
+    va_end(ap);
+    return total / n;
+}
+
+int main(void)
+{
+    float f = 2.5f;
+
+    printf("%g\\n", average(3, 1.0, 2.0, (double)f));
+    return 0;
+}
+`,
+    see: ['va_start', 'va_list', 'integer promotion'],
+  },
+  va_end: {
+    text: 'va_end(ap) finishes using ap. It must be called before the function that called va_start returns.\n\nOn this machine it does nothing, but on others va_start may set up something that va_end has to undo, so portable code always calls it. After va_end, ap may be started again with va_start to walk the arguments a second time.',
+    example: `#include <stdio.h>
+#include <stdarg.h>
+
+static int largest(int n, ...)
+{
+    va_list ap;
+    int i, best, v;
+
+    va_start(ap, n);
+    best = va_arg(ap, int);
+    for (i = 1; i < n; i++) {
+        v = va_arg(ap, int);
+        if (v > best)
+            best = v;
+    }
+    va_end(ap);
+    return best;
+}
+
+int main(void)
+{
+    printf("largest: %d\\n", largest(5, 3, 9, -2, 7, 4));
+    return 0;
+}
+`,
+    see: ['va_start', 'va_arg'],
   },
 });
 
