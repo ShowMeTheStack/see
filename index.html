@@ -12028,6 +12028,1279 @@ int main(void)
   },
 });
 
+// ==== ide/ref/ideas.js ====
+/* The C reference: the ideas behind C */
+SEE.RefText = Object.assign(SEE.RefText || {}, {
+  'stack frame': {
+    group: 'Ideas',
+    text: 'Every time a function is called, it gets a stack frame: a block of memory on the stack holding its parameters, its local variables, and the bookkeeping needed to go back: the return address (where in the caller to continue) and the caller\'s saved frame pointer. When the function returns, its frame is popped and that memory is reused by the next call.\n\nThe stack grows downward on this machine, from high addresses to low. In See\'s memory picture the stack is on the left, with main\'s frame at the top and the function running now at the bottom. Each frame shows its variables at their real addresses, plus the "return to" and saved frame pointer cells. Click a frame to look at the variables of a caller.\n\nThis explains several rules of C. Local variables start with garbage because the frame reuses old memory. A pointer to a local variable becomes invalid when the function returns. Recursion works because each call has its own frame with its own copies of the variables, and recursion that never stops runs out of stack: a stack overflow.',
+    example: `#include <stdio.h>
+
+static int factorial(int n)
+{
+    int result;
+
+    if (n <= 1)
+        result = 1;
+    else
+        result = n * factorial(n - 1);
+    printf("frame for n = %d returns %d\\n", n, result);
+    return result;
+}
+
+int main(void)
+{
+    printf("4! = %d\\n", factorial(4));
+    return 0;
+}
+`,
+    see: ['heap', 'storage duration', 'dangling pointer', '()', 'return'],
+  },
+  heap: {
+    group: 'Ideas',
+    text: 'The heap is the area of memory that malloc, calloc and realloc hand out and free gives back. Unlike a local variable, a heap block lives until you free it, no matter which function created it, and its size can be decided while the program runs.\n\nIn See\'s memory picture each heap block is a numbered box showing its size, which function allocated it and on which line, and its contents. A pointer to the block is drawn as an arrow. Freed blocks are shown greyed out, and blocks still allocated when the program ends are marked as leaks.\n\nThe responsibilities are all yours: check that malloc did not return NULL, never use more bytes than you asked for, free each block exactly once, and do not touch it after freeing it. Breaking these rules gives buffer overflows, memory leaks, double frees and dangling pointers, all of which See detects and reports.',
+    example: `#include <stdio.h>
+#include <stdlib.h>
+
+int main(void)
+{
+    int n = 5, i;
+    int *squares = malloc(n * sizeof *squares);
+
+    if (squares == NULL)
+        return 1;
+    for (i = 0; i < n; i++)
+        squares[i] = i * i;
+    for (i = 0; i < n; i++)
+        printf("%d ", squares[i]);
+    printf("\\n");
+    free(squares);
+    return 0;
+}
+`,
+    see: ['malloc', 'free', 'stack frame', 'memory leak', 'dangling pointer'],
+  },
+  pointer: {
+    group: 'Ideas',
+    text: 'A pointer is a variable that holds the address of another object. int *p declares p as a pointer to int; p = &x makes it point at x; *p then is x, for reading and writing. On this machine every pointer is 4 bytes.\n\nPointers let a function change its caller\'s variables (pass &x), let programs build linked structures, and give access to heap memory, which has no name of its own. They also walk through arrays: p + 1 points to the next element, however big an element is.\n\nA pointer that points nowhere should hold NULL. One that was never set holds garbage, and one whose object has gone (freed, or a local whose function returned) is dangling; using either is undefined behaviour. In See\'s memory picture every pointer is drawn as an arrow to the box it points into, which makes all of this visible.',
+    example: `#include <stdio.h>
+
+static void double_it(int *p)
+{
+    *p = *p * 2;
+}
+
+int main(void)
+{
+    int x = 21;
+    int *p = &x;
+    int a[3] = { 10, 20, 30 };
+    int *q = a;
+
+    double_it(p);
+    printf("x = %d, *p = %d\\n", x, *p);
+    q++;
+    printf("q now points at %d, %d elements into a\\n", *q, (int)(q - a));
+    return 0;
+}
+`,
+    see: ['unary &', 'unary *', 'NULL', 'array decay', 'dangling pointer', '->'],
+  },
+  'array decay': {
+    group: 'Ideas',
+    text: 'In almost every expression, the name of an array is converted to a pointer to its first element. That conversion is called decay. So a, used as a value, means &a[0], and a[i] is really *(a + i).\n\nThe three exceptions are sizeof a (the size of the whole array), &a (a pointer to the whole array) and a string literal initialising a char array.\n\nDecay is why you cannot pass an array to a function: the function receives only a pointer, and a parameter written int a[] is really int *a. The function cannot know the length, so sizeof inside it gives the size of a pointer; pass the length as another argument. It is also why an array cannot be assigned or returned, and why changing a[i] inside a function changes the caller\'s array.',
+    example: `#include <stdio.h>
+
+static int sum(const int a[], int n)
+{
+    int i, s = 0;
+
+    for (i = 0; i < n; i++)
+        s += a[i];
+    return s;
+}
+
+int main(void)
+{
+    int v[4] = { 1, 2, 3, 4 };
+    int *p = v;
+
+    printf("sizeof v = %d, sizeof p = %d\\n", (int)sizeof v, (int)sizeof p);
+    printf("v == &v[0]: %d\\n", v == &v[0]);
+    printf("sum = %d\\n", sum(v, (int)(sizeof v / sizeof v[0])));
+    return 0;
+}
+`,
+    see: ['pointer', '[]', 'sizeof operator'],
+  },
+  'string literal': {
+    group: 'Ideas',
+    text: 'A string literal, "like this", is an array of characters with a NUL byte added at the end, stored for the whole life of the program. "abc" occupies 4 bytes.\n\nModifying a string literal is undefined behaviour. In See literals live in read-only memory (shown in the read-only data area of the memory picture), so char *s = "abc"; s[0] = \'X\'; stops the program. To get a string you can change, copy it into an array: char s[] = "abc"; makes a 4-byte array initialised from the literal. Declaring literal pointers as const char * lets the compiler catch mistakes.\n\nAdjacent literals are joined at compile time: "ab" "cd" is "abcd", useful for splitting long strings across lines. Escape sequences such as \\n, \\t, \\" and \\\\ write characters that cannot be typed directly.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    const char *p = "read-only";
+    char a[] = "changeable";
+
+    a[0] = 'C';
+    printf("%s / %s\\n", p, a);
+    printf("sizeof \\"abc\\" = %d\\n", (int)sizeof "abc");
+    printf("joined: %s\\n", "con" "cat" "enated");
+    return 0;
+}
+`,
+    see: ['NUL terminator', 'const', 'char', 'array decay'],
+  },
+  'NUL terminator': {
+    group: 'Ideas',
+    text: 'C strings have no stored length. A string is a sequence of characters ending with the NUL character, \'\\0\', the byte with value 0. Every string function relies on it: strlen counts up to it, printf("%s") prints up to it, strcpy copies up to and including it.\n\nSo a string of n characters needs an array of n + 1 bytes. Forgetting the extra byte, or building a string by hand without adding the \'\\0\', makes the functions run past the end of the array, reading or writing memory that belongs to something else. strncpy is a known trap: if the source is too long it does not add the terminator.\n\nNUL (the character) is not NULL (the null pointer), although both are zero. In See\'s memory picture a char array shows each byte, and the terminator appears as \\0.',
+    example: `#include <stdio.h>
+#include <string.h>
+
+int main(void)
+{
+    char word[6];
+
+    word[0] = 'h';
+    word[1] = 'e';
+    word[2] = 'l';
+    word[3] = 'l';
+    word[4] = 'o';
+    word[5] = '\\0';
+    printf("%s has length %d and needs %d bytes\\n", word, (int)strlen(word), (int)sizeof word);
+    word[2] = '\\0';
+    printf("cut short: %s\\n", word);
+    return 0;
+}
+`,
+    see: ['string literal', 'strlen', 'strncpy', 'buffer overflow', 'NULL'],
+  },
+  'undefined behaviour': {
+    group: 'Ideas',
+    text: 'Undefined behaviour is what the C standard calls a program that breaks one of its rules in a way the compiler is not required to catch. The standard then places no requirements at all: the program may crash, print nonsense, appear to work, or work today and fail after a small change.\n\nThe common causes: reading or writing outside an array, dereferencing NULL or a dangling pointer, using an uninitialised variable, signed integer overflow, dividing by zero, modifying a string literal, modifying a variable twice between sequence points (i = i++), and passing printf a value that does not match its format.\n\nOn a real machine many of these go unnoticed and cause bugs far away from their origin. See checks for most of them while the program runs and stops at the line responsible, explaining what went wrong, which is much easier to learn from. A program that runs correctly in See has passed those checks, but the habit to build is to never rely on what an undefined operation happened to do.',
+    example: `#include <stdio.h>
+#include <limits.h>
+
+int main(void)
+{
+    int a[4] = { 1, 2, 3, 4 };
+    int i = 4, x = INT_MAX;
+
+    if (i >= 0 && i < 4)
+        printf("a[%d] = %d\\n", i, a[i]);
+    else
+        printf("index %d is outside a[4]; reading it would be undefined\\n", i);
+    if (x < INT_MAX)
+        x = x + 1;
+    else
+        printf("x + 1 would overflow; that would be undefined too\\n");
+    return 0;
+}
+`,
+    see: ['buffer overflow', 'dangling pointer', 'sequence point', 'INT_MAX'],
+  },
+  'integer promotion': {
+    group: 'Ideas',
+    text: 'Before arithmetic, C converts small integer types to int: char, signed char, unsigned char, short and unsigned short (and bit-fields and enums) all become int, because int can hold all their values here. This is the integer promotion.\n\nSo c + 1 with a char c is an int, \'a\' * 2 does not overflow a char, and sizeof(c + c) is 4. The result is converted back only when you store it into a smaller variable.\n\nThe same promotion happens to arguments of a function declared with ..., such as printf: a char or short arrives as int and a float as double. That is why %d prints a char and why va_arg must ask for int, never char.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    unsigned char a = 200, b = 100;
+    unsigned char c;
+    int sum;
+
+    sum = a + b;
+    c = (unsigned char)(a + b);
+    printf("a + b = %d as int, %d stored back in a char\\n", sum, c);
+    printf("sizeof a = %d, sizeof(a + b) = %d\\n", (int)sizeof a, (int)sizeof(a + b));
+    return 0;
+}
+`,
+    see: ['usual arithmetic conversions', 'char', 'va_arg'],
+  },
+  'usual arithmetic conversions': {
+    group: 'Ideas',
+    text: 'When a binary operator such as +, <, or == has operands of different types, C converts them to a common type first. The rules, in order: if either is long double, both become long double; else if either is double, both become double; else if either is float, both become float. Otherwise both get the integer promotions, and then the "smaller" is converted to the "larger" of int, unsigned int, long and unsigned long.\n\nThe floating cases are what you would expect: 7 / 2.0 is done in double. The trap is signed against unsigned of the same size: the signed value is converted to unsigned. -1 becomes 4294967295, so -1 < 1u is false, and if (i < strlen(s)) misbehaves for negative i.\n\nThe conversion happens on the values, before the operation, and only for that expression.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    int i = -1;
+    unsigned u = 1;
+    double d = 7 / 2;
+    double e = 7 / 2.0;
+
+    printf("7 / 2 = %g, 7 / 2.0 = %g\\n", d, e);
+    printf("i < u is %d, because i becomes %u\\n", (unsigned)i < u, (unsigned)i);
+    return 0;
+}
+`,
+    see: ['integer promotion', 'unsigned', '(type)', '<'],
+  },
+  'sequence point': {
+    group: 'Ideas',
+    text: 'A sequence point is a moment in the execution of a program at which all side effects of earlier evaluations (assignments, increments, writes through pointers, output) are complete. There is one at the end of every full expression (each statement, each if or while condition), after the left operand of &&, || and the comma operator, after the condition of ?:, and just before a function is called, once its arguments are evaluated.\n\nBetween two sequence points, a variable may be modified at most once, and if it is modified, it may be read only to compute its new value. i = i++, a[i] = i++ and i++ + i++ break the rule and are undefined behaviour.\n\nThe order in which operands and function arguments are evaluated between sequence points is unspecified. printf("%d %d", f(), g()) may call g first. If the order matters, use separate statements.',
+    example: `#include <stdio.h>
+
+static int counter = 0;
+
+static int next(void)
+{
+    return ++counter;
+}
+
+int main(void)
+{
+    int a, b, i = 0;
+
+    a = next();
+    b = next();
+    printf("in order: %d %d\\n", a, b);
+    i++;
+    i = i * 10;
+    printf("i = %d\\n", i);
+    if (i > 5 && ++i > 10)
+        printf("&& has a sequence point: i = %d\\n", i);
+    return 0;
+}
+`,
+    see: ['++', '&&', ',', '?:', 'undefined behaviour'],
+  },
+  lvalue: {
+    group: 'Ideas',
+    text: 'An lvalue is an expression that designates an object in memory, something that has an address: a variable name, a[i], *p, s.member, p->member. The name comes from being allowed on the left of an assignment.\n\nAssignment, ++, -- and the address-of operator & need an lvalue. 5 = x, (a + b) = 3, f() = 1 and &(x + 1) are all errors, because those expressions are just values with no storage.\n\nSome lvalues cannot be modified: a const variable, and an array name (you cannot assign to a whole array). The compiler reports these as an attempt to assign to a read-only or non-modifiable lvalue.',
+    example: `#include <stdio.h>
+
+struct pair {
+    int a, b;
+};
+
+int main(void)
+{
+    int x = 1, arr[3] = { 0, 0, 0 };
+    int *p = &arr[1];
+    struct pair s;
+
+    x = 2;
+    arr[0] = 3;
+    *p = 4;
+    s.a = 5;
+    s.b = x + arr[0];
+    printf("%d %d %d %d %d\\n", x, arr[0], arr[1], s.a, s.b);
+    return 0;
+}
+`,
+    see: ['=', 'unary &', 'const'],
+  },
+  scope: {
+    group: 'Ideas',
+    text: 'The scope of a name is the part of the program text where it can be used. A name declared inside a block, between { and }, has block scope: it is visible from its declaration to the closing brace. A name declared outside all functions has file scope: it is visible from there to the end of the file. Function parameters have the scope of the function body, and labels (for goto) have function scope.\n\nAn inner declaration hides (shadows) an outer one with the same name until its block ends. That is legal but confusing; prefer different names.\n\nScope is about where a name is visible, not how long the object lives. A static local variable has block scope but lives for the whole program; see storage duration. Whether the same name in another file refers to the same object is linkage.',
+    example: `#include <stdio.h>
+
+int count = 100;
+
+int main(void)
+{
+    int count = 1;
+
+    printf("inner count: %d\\n", count);
+    {
+        int count = 2;
+
+        printf("innermost count: %d\\n", count);
+    }
+    printf("back to: %d\\n", count);
+    return 0;
+}
+`,
+    see: ['linkage', 'storage duration', 'static', 'extern'],
+  },
+  linkage: {
+    group: 'Ideas',
+    text: 'Linkage decides whether the same name declared in different places, possibly in different source files, refers to the same object or function.\n\nExternal linkage: the name is shared across the whole program. Functions and file-scope variables have it by default, and extern declarations refer to it. Internal linkage: the name is private to one source file. static at file scope gives it, so two files can each have their own static int count without a clash. No linkage: local variables and parameters, which are unique to their block.\n\nThe linker joins external names after compiling each file. Two files defining the same external name give a "multiple definition" error, and a name declared but never defined gives "undefined reference".',
+    example: `#include <stdio.h>
+
+static int calls = 0;
+int shared_total = 0;
+
+static void helper(int n)
+{
+    calls++;
+    shared_total += n;
+}
+
+int main(void)
+{
+    helper(5);
+    helper(7);
+    printf("calls %d (private to this file), total %d (visible to other files)\\n", calls, shared_total);
+    return 0;
+}
+`,
+    see: ['extern', 'static', 'scope', 'translation unit'],
+  },
+  'storage duration': {
+    group: 'Ideas',
+    text: 'The storage duration of an object is how long it exists. C89 has three kinds.\n\nAutomatic: local variables (without static) exist from entry to their block until it is left, in the function\'s stack frame. They start uninitialised. Static: global variables and static locals exist for the whole run of the program; they are initialised before main starts, to zero unless given another value. Allocated: blocks from malloc, calloc and realloc exist until free.\n\nIn See\'s memory picture these are three separate areas: the stack on the left, and on the right the heap and the "data and bss" area of globals and static locals. A pointer that outlives the object it points to (a returned address of a local, a freed block) is dangling.',
+    example: `#include <stdio.h>
+#include <stdlib.h>
+
+int global_count;
+
+static int *make(int v)
+{
+    int *p = malloc(sizeof *p);
+
+    if (p != NULL)
+        *p = v;
+    return p;
+}
+
+int main(void)
+{
+    static int calls;
+    int local = 5;
+    int *h = make(42);
+
+    if (h == NULL)
+        return 1;
+    printf("global %d, static local %d (both start at 0), local %d, heap %d\\n", global_count, calls, local, *h);
+    free(h);
+    return 0;
+}
+`,
+    see: ['static', 'auto', 'heap', 'stack frame', 'scope'],
+  },
+  'translation unit': {
+    group: 'Ideas',
+    text: 'A translation unit is what the compiler actually compiles: one .c source file after the preprocessor has pasted in every #include and expanded every macro. Each translation unit is compiled separately into an object file, and the linker then combines them into one program.\n\nThat is why each .c file must include the headers it needs itself, why static names are private to one translation unit, and why a function used in another file must be declared there, usually through a shared header.\n\nIn See, a project with several .c files in a folder is built this way: each file compiled on its own, then linked together with the C library.',
+    example: `#include <stdio.h>
+
+static int helper(int x)
+{
+    return x * 3;
+}
+
+int main(void)
+{
+    printf("this file is one translation unit; helper(4) = %d\\n", helper(4));
+    return 0;
+}
+`,
+    see: ['header file', 'linkage', 'declaration versus definition'],
+  },
+  'header file': {
+    group: 'Ideas',
+    text: 'A header file (.h) holds declarations that several source files need to share: function prototypes, extern variable declarations, type definitions, struct declarations and macros. #include "file.h" pastes its text into the source file at that point; #include <file.h> does the same for system headers, which are found in /usr/include. In See you can open /usr/include/stdio.h and read it.\n\nA header should declare, not define: put int count; or a function body in a header that two .c files include, and the program gets two definitions. The usual guard against including the same header twice in one file is #ifndef NAME_H / #define NAME_H / ... / #endif around the contents.\n\nForgetting a standard header is a classic C89 bug: calling sqrt without <math.h> makes the compiler assume it returns int.',
+    example: `#include <stdio.h>
+#include <string.h>
+#include <math.h>
+
+int main(void)
+{
+    printf("strlen and sqrt are declared in <string.h> and <math.h>: %d %g\\n", (int)strlen("abc"), sqrt(16.0));
+    return 0;
+}
+`,
+    see: ['translation unit', 'declaration versus definition', 'extern'],
+  },
+  'declaration versus definition': {
+    group: 'Ideas',
+    text: 'A declaration tells the compiler that a name exists and what its type is. A definition also creates the thing: it allocates storage for a variable or provides the body of a function. Every definition is a declaration, but not the other way round.\n\nint square(int x); is a declaration (a prototype); int square(int x) { return x * x; } is a definition. extern int count; is a declaration; int count = 0; is a definition. struct point { int x, y; }; declares a type and creates no object.\n\nA name may be declared as many times as you like, consistently, but defined only once in the whole program (the one-definition rule). That is why declarations go in header files and definitions in exactly one .c file. A name used but never defined gives a link error.',
+    example: `#include <stdio.h>
+
+int square(int x);
+extern int calls;
+
+int main(void)
+{
+    printf("square(9) = %d\\n", square(9));
+    printf("calls = %d\\n", calls);
+    return 0;
+}
+
+int calls = 0;
+
+int square(int x)
+{
+    calls++;
+    return x * x;
+}
+`,
+    see: ['header file', 'extern', 'linkage', 'translation unit'],
+  },
+  endianness: {
+    group: 'Ideas',
+    text: 'A value wider than one byte is stored in several consecutive bytes, and endianness is the order they go in. A little-endian machine stores the least significant byte at the lowest address; a big-endian machine stores the most significant byte first. The machine See simulates is little-endian, like x86 and most ARM systems: the int 0x11223344 sits in memory as 44 33 22 11.\n\nIt does not matter for arithmetic, only when the same memory is looked at as bytes: writing an int to a file with fwrite and reading it on a machine of the other kind, sending numbers over a network, or inspecting memory through an unsigned char pointer. Portable code builds multi-byte values from bytes with shifts.\n\nIn See, the bytes panel shows the raw bytes of memory while a program is paused, lowest address first, so an int appears there in little-endian order.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    unsigned int x = 0x11223344u;
+    unsigned char *b = (unsigned char *)&x;
+    int i;
+
+    printf("0x%X in memory, lowest address first:", x);
+    for (i = 0; i < (int)sizeof x; i++)
+        printf(" %02X", b[i]);
+    printf("\\n%s-endian\\n", b[0] == 0x44 ? "little" : "big");
+    return 0;
+}
+`,
+    see: ['union', '<<', 'fwrite'],
+  },
+  'alignment and padding': {
+    group: 'Ideas',
+    text: 'Most types must be stored at an address that is a multiple of some number, their alignment: here an int or pointer at a multiple of 4, a double at a multiple of 8, a char anywhere. Accessing misaligned data is slow or impossible on many processors.\n\nTo keep every member of a structure aligned, the compiler inserts unused padding bytes between members, and at the end so that arrays of the structure stay aligned too. struct { char c; double d; } takes 16 bytes, not 9: 7 padding bytes follow c.\n\nSo sizeof a structure can be larger than the sum of its members, offsetof gives the true positions, and ordering members from largest to smallest often saves space. Never compare structures with memcmp: the padding bytes hold garbage. In See\'s memory picture the padding shows as gaps between the fields of a structure, and the bytes panel shows every byte of it, padding included.',
+    example: `#include <stdio.h>
+#include <stddef.h>
+
+struct loose {
+    char a;
+    double d;
+    char b;
+};
+
+struct tight {
+    double d;
+    char a;
+    char b;
+};
+
+int main(void)
+{
+    printf("loose: %d bytes (d at offset %d)\\n", (int)sizeof(struct loose), (int)offsetof(struct loose, d));
+    printf("tight: %d bytes\\n", (int)sizeof(struct tight));
+    return 0;
+}
+`,
+    see: ['offsetof', 'struct', 'sizeof operator'],
+  },
+  "two's complement": {
+    group: 'Ideas',
+    text: 'Two\'s complement is the way virtually every machine, including the one See simulates, stores signed integers. The top bit has a negative weight: in 8 bits, 10000000 is -128 and 11111111 is -1. To negate a number, invert all its bits and add 1, which is why ~x == -x - 1.\n\nThe range is lopsided: an n-bit signed type runs from -2 to the n-1 up to 2 to the n-1 minus 1, so a 32-bit int goes from -2147483648 to 2147483647, and -INT_MIN does not fit.\n\nThe same bit pattern means different numbers as signed and as unsigned: 0xFFFFFFFF is -1 as an int and 4294967295 as an unsigned int. Conversions between them keep the bits, which is why -1 converted to unsigned is UINT_MAX. C89 itself also allowed one\'s complement and sign-magnitude machines, but they are long gone.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    signed char values[] = { 0, 1, 127, -1, -128 };
+    int i, bit;
+
+    for (i = 0; i < 5; i++) {
+        printf("%5d = ", values[i]);
+        for (bit = 7; bit >= 0; bit--)
+            putchar(((unsigned char)values[i] >> bit) & 1 ? '1' : '0');
+        printf("\\n");
+    }
+    printf("~5 = %d, -1 as unsigned = %u\\n", ~5, (unsigned)-1);
+    return 0;
+}
+`,
+    see: ['INT_MIN', '~', 'unsigned', 'signed'],
+  },
+  'buffer overflow': {
+    group: 'Ideas',
+    text: 'A buffer overflow is writing (or reading) past the end of an array: a[10] in an array of 10, copying a 20-character string into char name[16], or a loop that runs with i <= n. C does not check array bounds, so on a real machine the bytes land in whatever comes next in memory: other variables, the saved return address in the stack frame, or the heap\'s own bookkeeping.\n\nThe effects range from wrong values far from the bug to crashes, and overflows of the stack are a classic security hole, because overwriting the return address can redirect the program.\n\nThe defences: always know the size of the destination and pass it along (fgets(buf, sizeof buf, stdin) rather than gets, strncpy or a length check rather than a blind strcpy, sprintf only with formats whose output you have measured). See checks every access and stops at the first one outside its array, naming the array and its valid range.',
+    example: `#include <stdio.h>
+#include <string.h>
+
+int main(void)
+{
+    char name[8];
+    const char *input = "Bartholomew";
+
+    if (strlen(input) < sizeof name) {
+        strcpy(name, input);
+    } else {
+        strncpy(name, input, sizeof name - 1);
+        name[sizeof name - 1] = '\\0';
+    }
+    printf("stored safely: \\"%s\\" (the input had %d characters)\\n", name, (int)strlen(input));
+    return 0;
+}
+`,
+    see: ['NUL terminator', 'strcpy', 'strncpy', 'fgets', 'gets', '[]'],
+  },
+  'memory leak': {
+    group: 'Ideas',
+    text: 'A memory leak is heap memory that is never freed after the program has finished with it. Usually the last pointer to the block is overwritten or goes out of scope, so the block can no longer even be freed.\n\nOne leak in a short program does no harm, since the operating system reclaims everything at exit. But a leak inside a loop or a long-running program grows until memory runs out. Typical causes: an early return or error path that skips the free, p = realloc(p, n) losing the old block when it fails, and freeing a structure without first freeing the blocks it points to.\n\nWhen a program ends, See lists every block that was never freed, with its size and the line that allocated it, and marks them in the heap area of the memory picture.',
+    example: `#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+static char *copy_of(const char *s)
+{
+    char *p = malloc(strlen(s) + 1);
+
+    if (p != NULL)
+        strcpy(p, s);
+    return p;
+}
+
+int main(void)
+{
+    int i;
+    char *s;
+
+    for (i = 0; i < 3; i++) {
+        s = copy_of("temporary");
+        if (s == NULL)
+            return 1;
+        printf("%d: %s\\n", i, s);
+        free(s);
+    }
+    printf("every block freed: no leak\\n");
+    return 0;
+}
+`,
+    see: ['heap', 'malloc', 'free', 'realloc', 'dangling pointer'],
+  },
+  'dangling pointer': {
+    group: 'Ideas',
+    text: 'A dangling pointer is one that still holds the address of an object that no longer exists. The two usual ways to get one: freeing a heap block and then using a pointer to it (use after free, or freeing it twice), and returning the address of a local variable from a function, whose stack frame is gone once it returns.\n\nThe pointer itself looks perfectly normal, and on a real machine the old memory often still holds the old values for a while, so the bug can hide until that memory is reused. Then a write through the pointer corrupts a different object.\n\nSetting a pointer to NULL right after free(p) turns later mistakes into an obvious NULL dereference. See tracks every block and frame, and stops with "use after free" or a similar message the moment a dangling pointer is used.',
+    example: `#include <stdio.h>
+#include <stdlib.h>
+
+static int *make_counter(void)
+{
+    int *p = malloc(sizeof *p);
+
+    if (p != NULL)
+        *p = 0;
+    return p;
+}
+
+int main(void)
+{
+    int *c = make_counter();
+
+    if (c == NULL)
+        return 1;
+    (*c)++;
+    printf("counter = %d\\n", *c);
+    free(c);
+    c = NULL;
+    if (c == NULL)
+        printf("freed, and the pointer cleared so it cannot dangle\\n");
+    return 0;
+}
+`,
+    see: ['free', 'stack frame', 'heap', 'NULL', 'pointer'],
+  },
+});
+
+// ==== ide/ref/keywords.js ====
+/* The C reference: the 32 keywords of C89 */
+SEE.RefText = Object.assign(SEE.RefText || {}, {
+  auto: {
+    group: 'Keywords', kind: 'keyword',
+    sig: 'auto type name;',
+    text: 'auto declares a local variable with automatic storage duration: it is created when the block is entered and destroyed when the block is left. That is already the default for every variable declared inside a function, so auto is almost never written.\n\nAn automatic variable is not initialised unless you give it a value; until then it holds whatever bytes were left in that stack memory. See warns when a program reads one before it was given a value, and the memory picture shows it inside the function\'s stack frame.\n\n(In C++11 and later, auto means something completely different: type deduction. Not in C.)',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    auto int count = 3;
+    int same = 3;
+
+    printf("%d and %d are both automatic variables\\n", count, same);
+    return 0;
+}
+`,
+    see: ['register', 'static', 'storage duration', 'stack frame'],
+  },
+  break: {
+    group: 'Keywords', kind: 'keyword',
+    sig: 'break;',
+    text: 'break leaves the innermost enclosing for, while, do or switch immediately, and continues with the statement after it.\n\nIn a switch, break is how a case ends; without it, execution falls through into the next case. In nested loops, break only leaves the inner one; to leave several at once use a flag, a return, or goto.\n\nbreak cannot be used to leave an if block on its own.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    int primes[] = { 2, 3, 5, 7, 11, 13 };
+    int i;
+
+    for (i = 0; i < 6; i++) {
+        if (primes[i] > 6)
+            break;
+        printf("%d ", primes[i]);
+    }
+    printf("\\nstopped at index %d\\n", i);
+    return 0;
+}
+`,
+    see: ['continue', 'switch', 'for', 'goto'],
+  },
+  case: {
+    group: 'Keywords', kind: 'keyword',
+    sig: 'case constant-expression: statements',
+    text: 'case marks a place inside a switch to jump to when the controlling value equals the constant. The constant must be an integer constant expression known at compile time: a number, a character such as \'a\', an enum constant or arithmetic on these. Strings and variables are not allowed, and two cases may not have the same value.\n\nA case label is only a label: execution continues straight into the following cases unless a break stops it. Several labels in a row share one piece of code.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    const char *s = "a1 b?";
+    int i, letters = 0, digits = 0, other = 0;
+
+    for (i = 0; s[i] != '\\0'; i++) {
+        switch (s[i]) {
+        case 'a': case 'b': case 'c':
+            letters++;
+            break;
+        case '0': case '1': case '2':
+            digits++;
+            break;
+        default:
+            other++;
+        }
+    }
+    printf("%d letters, %d digits, %d other\\n", letters, digits, other);
+    return 0;
+}
+`,
+    see: ['switch', 'default', 'break'],
+  },
+  char: {
+    group: 'Keywords', kind: 'keyword',
+    sig: 'char name;  signed char name;  unsigned char name;',
+    text: 'char is the smallest integer type, exactly one byte (CHAR_BIT bits, 8 here). It holds a character code: \'A\' is just the number 65. Arrays of char ending in a NUL byte are C\'s strings.\n\nWhether a plain char is signed or unsigned is up to the implementation; here it is signed, from -128 to 127. signed char and unsigned char spell it out. Use unsigned char for raw bytes, and cast to unsigned char before calling the <ctype.h> functions.\n\nThe result of getchar and fgetc must be kept in an int, not a char, so that EOF can be told apart from a real byte.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    char c = 'A';
+    char word[] = "hi";
+
+    printf("'%c' is %d; next is '%c'\\n", c, c, c + 1);
+    printf("\\"%s\\" takes %d bytes\\n", word, (int)sizeof word);
+    return 0;
+}
+`,
+    see: ['CHAR_MIN', 'unsigned', 'string literal', 'NUL terminator', 'getchar'],
+  },
+  const: {
+    group: 'Keywords', kind: 'keyword',
+    sig: 'const type name = value;  const type *p;  type *const p;',
+    text: 'const says an object must not be changed through this name. The compiler rejects an assignment to it. A const variable must be given its value when it is defined.\n\nWith pointers its position matters. const char *p (or char const *p) is a pointer to characters that may not be changed through p, though p itself can move. char *const p is a pointer that cannot move, to characters that can be changed. Read declarations from the name outwards: p is a const pointer to char.\n\nFunctions use const on pointer parameters to promise they will not modify what they are given, as in size_t strlen(const char *s). Passing a non-const pointer to such a parameter is always fine; the reverse needs a cast and is usually a mistake.\n\nIn C89 a const int is not a constant expression, so it cannot size an array or label a case; use #define or an enum for that.',
+    example: `#include <stdio.h>
+#include <string.h>
+
+static int count_char(const char *s, char c)
+{
+    int n = 0;
+
+    for (; *s != '\\0'; s++)
+        if (*s == c)
+            n++;
+    return n;
+}
+
+int main(void)
+{
+    const double rate = 0.2;
+    char text[] = "banana";
+
+    printf("%d a's; 20%% of 50 is %g\\n", count_char(text, 'a'), rate * 50);
+    return 0;
+}
+`,
+    see: ['volatile', 'pointer', 'enum'],
+  },
+  continue: {
+    group: 'Keywords', kind: 'keyword',
+    sig: 'continue;',
+    text: 'continue skips the rest of the current iteration of the innermost for, while or do loop and starts the next one.\n\nIn a for loop the increment expression still runs before the condition is tested again. In a while or do loop control goes straight to the condition, so make sure whatever moves the loop forward happens before the continue, or the loop never ends.\n\ncontinue has no meaning in a switch; inside a switch inside a loop, it continues the loop.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    int i;
+
+    for (i = 1; i <= 10; i++) {
+        if (i % 3 == 0)
+            continue;
+        printf("%d ", i);
+    }
+    printf("\\n");
+    return 0;
+}
+`,
+    see: ['break', 'for', 'while'],
+  },
+  default: {
+    group: 'Keywords', kind: 'keyword',
+    sig: 'default: statements',
+    text: 'default labels the code a switch jumps to when no case matches. It is optional; without it, an unmatched value skips the whole switch body. There may be at most one default in a switch.\n\nIt can appear anywhere among the cases, though it is normally written last. Putting a default in every switch, even one that just reports an impossible value, catches bugs early.',
+    example: `#include <stdio.h>
+
+static const char *day_name(int d)
+{
+    switch (d) {
+    case 0: return "Sunday";
+    case 6: return "Saturday";
+    default: return "a weekday";
+    }
+}
+
+int main(void)
+{
+    printf("0: %s, 3: %s, 6: %s\\n", day_name(0), day_name(3), day_name(6));
+    return 0;
+}
+`,
+    see: ['switch', 'case'],
+  },
+  do: {
+    group: 'Keywords', kind: 'keyword',
+    sig: 'do statement while (expression);',
+    text: 'do ... while is the loop that tests its condition at the end, so the body always runs at least once. Note the semicolon after the closing parenthesis.\n\nIt suits work that must happen before you can decide whether to repeat: reading input until it is valid, or producing digits of a number (even 0 has one digit).',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    unsigned n = 0, x;
+    int digits = 0;
+
+    x = n;
+    do {
+        digits++;
+        x /= 10;
+    } while (x != 0);
+    printf("%u has %d digit(s)\\n", n, digits);
+    return 0;
+}
+`,
+    see: ['while', 'for', 'break'],
+  },
+  double: {
+    group: 'Keywords', kind: 'keyword',
+    sig: 'double name;  long double name;',
+    text: 'double is the standard floating-point type: 8 bytes here in IEEE 754 format, with about 15 decimal digits of precision and a range up to about 1.8e308. It is the type of a constant like 3.14, the type the math functions use, and what a float is promoted to when passed to printf.\n\nFloating-point numbers are binary fractions, so most decimal fractions are not exact: 0.1 + 0.2 is not exactly 0.3. Never compare computed doubles with ==; and never use them for money counted in cents, use integers.\n\nprintf prints a double with %f, %e or %g. scanf reads one with %lf; %f there means float, a common bug. long double is the same as double on this machine.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    double sum = 0.0;
+    int i;
+
+    for (i = 0; i < 10; i++)
+        sum += 0.1;
+    printf("ten times 0.1 = %.17f\\n", sum);
+    printf("equal to 1.0? %s\\n", sum == 1.0 ? "yes" : "no");
+    return 0;
+}
+`,
+    see: ['float', 'DBL_EPSILON', 'DBL_MAX', 'printf'],
+  },
+  else: {
+    group: 'Keywords', kind: 'keyword',
+    sig: 'if (expression) statement else statement',
+    text: 'else gives an if statement the branch to run when its condition is false (zero).\n\nAn else always belongs to the nearest if that does not already have one, regardless of indentation. This "dangling else" trap is why many programmers always use braces for nested ifs.\n\nelse if is not a special keyword: it is an else whose statement happens to be another if, which is how a chain of tests is written.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    int marks[] = { 95, 72, 40 };
+    int i;
+
+    for (i = 0; i < 3; i++) {
+        if (marks[i] >= 90)
+            printf("%d: excellent\\n", marks[i]);
+        else if (marks[i] >= 50)
+            printf("%d: pass\\n", marks[i]);
+        else
+            printf("%d: fail\\n", marks[i]);
+    }
+    return 0;
+}
+`,
+    see: ['if', '?:', 'switch'],
+  },
+  enum: {
+    group: 'Keywords', kind: 'keyword',
+    sig: 'enum tag { NAME1, NAME2 = value, ... };',
+    text: 'enum declares a set of named integer constants. By default the first is 0 and each next one is one more than the previous; you can give any of them an explicit value. The names are constants of type int, usable in case labels and array sizes.\n\nA variable of the enum type is just an integer: C does not stop you storing any other int in it, and printf prints it with %d.\n\nThe constants share one name space with variables and functions, so two enums cannot both have a RED.',
+    example: `#include <stdio.h>
+
+enum colour { RED, GREEN = 5, BLUE };
+
+int main(void)
+{
+    enum colour c = BLUE;
+    const char *names[] = { "red", "green", "blue" };
+
+    printf("RED=%d GREEN=%d BLUE=%d\\n", RED, GREEN, BLUE);
+    printf("c is %s\\n", names[c == RED ? 0 : c == GREEN ? 1 : 2]);
+    return 0;
+}
+`,
+    see: ['typedef', 'switch', 'const'],
+  },
+  extern: {
+    group: 'Keywords', kind: 'keyword',
+    sig: 'extern type name;',
+    text: 'extern declares a variable or function that is defined somewhere else, usually in another source file. It tells the compiler the name and type without creating the object; the linker connects the uses to the one real definition.\n\nThe classic pattern is a header with extern int counter; included by every file that uses counter, and exactly one .c file with int counter = 0;. Two definitions, or none, are link errors.\n\nFunction declarations are extern by default, so the keyword is normally left off them. At file scope, extern int x = 1; with an initialiser is a definition after all.',
+    example: `#include <stdio.h>
+
+extern int total;
+extern void add(int n);
+
+int total = 0;
+
+void add(int n)
+{
+    total += n;
+}
+
+int main(void)
+{
+    add(3);
+    add(4);
+    printf("total = %d\\n", total);
+    return 0;
+}
+`,
+    see: ['static', 'linkage', 'declaration versus definition', 'header file'],
+  },
+  float: {
+    group: 'Keywords', kind: 'keyword',
+    sig: 'float name;',
+    text: 'float is the single-precision floating-point type: 4 bytes here, about 6 decimal digits of precision and a range up to about 3.4e38. A float constant has an f suffix: 2.5f. Without it, 2.5 is a double.\n\nFloats are promoted to double when passed to printf or other variadic functions, so %f prints both. scanf is different: %f reads a float and %lf a double.\n\nWith so few digits, float accumulates rounding error quickly; prefer double unless memory is tight.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    float f = 0.0f;
+    double d = 0.0;
+    int i;
+
+    for (i = 0; i < 1000000; i++) {
+        f += 0.1f;
+        d += 0.1;
+    }
+    printf("float: %f\\ndouble: %f\\n", f, d);
+    return 0;
+}
+`,
+    see: ['double', 'FLT_DIG', 'FLT_EPSILON'],
+  },
+  for: {
+    group: 'Keywords', kind: 'keyword',
+    sig: 'for (init; condition; step) statement',
+    text: 'for is the counting loop. The init expression runs once; then, as long as condition is true, the body runs followed by step. Any of the three parts may be left out; an empty condition means "forever", as in for (;;).\n\nIn C89 the loop variable cannot be declared inside the parentheses: declare int i; at the top of the block. for (int i = 0; ...) is C99.\n\nThe usual way to walk an array of n elements is for (i = 0; i < n; i++). Writing i <= n reads one element past the end, the most common off-by-one error. A stray semicolon after the closing parenthesis makes the loop body empty.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    int squares[5];
+    int i;
+
+    for (i = 0; i < 5; i++)
+        squares[i] = i * i;
+    for (i = 4; i >= 0; i--)
+        printf("%d ", squares[i]);
+    printf("\\n");
+    return 0;
+}
+`,
+    see: ['while', 'do', 'break', 'continue', ','],
+  },
+  goto: {
+    group: 'Keywords', kind: 'keyword',
+    sig: 'goto label;  ...  label: statement',
+    text: 'goto jumps to a label in the same function. A label is a name followed by a colon in front of a statement.\n\nUsed freely, goto makes code hard to follow, and loops and functions are almost always clearer. The accepted uses in C are leaving several nested loops at once and jumping to a single clean-up section at the end of a function that frees what was allocated.\n\nJumping into a block past the initialisation of its variables leaves them uninitialised.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    int grid[3][3] = { { 1, 2, 3 }, { 4, 5, 6 }, { 7, 8, 9 } };
+    int r, c;
+
+    for (r = 0; r < 3; r++)
+        for (c = 0; c < 3; c++)
+            if (grid[r][c] == 5)
+                goto found;
+    printf("not found\\n");
+    return 0;
+found:
+    printf("5 is at row %d, column %d\\n", r, c);
+    return 0;
+}
+`,
+    see: ['break', 'return', 'longjmp'],
+  },
+  if: {
+    group: 'Keywords', kind: 'keyword',
+    sig: 'if (expression) statement [else statement]',
+    text: 'if runs its statement only when the expression is true, which in C means not zero. Any scalar works as a condition: if (p) tests a pointer for NULL, if (n) tests a number for zero.\n\nThe classic trap is if (x = 5), an assignment that is always true, instead of if (x == 5). See warns about it. Another is a semicolon right after the parenthesis, if (x > 0);, which ends the if with an empty statement.\n\nTo run several statements, wrap them in braces.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    int n = 7;
+
+    if (n % 2 == 0)
+        printf("%d is even\\n", n);
+    else
+        printf("%d is odd\\n", n);
+    if (n)
+        printf("%d is not zero\\n", n);
+    return 0;
+}
+`,
+    see: ['else', '==', '?:', '&&'],
+  },
+  int: {
+    group: 'Keywords', kind: 'keyword',
+    sig: 'int name;  short int, long int, unsigned int',
+    text: 'int is the natural integer type of the machine, the one arithmetic is done in. Here it is 4 bytes, from INT_MIN (-2147483648) to INT_MAX (2147483647). The standard only guarantees 16 bits.\n\nint also combines with other keywords: short, long, signed and unsigned may be written with or without int (unsigned is unsigned int). Smaller types such as char and short are promoted to int before arithmetic.\n\nSigned overflow, going past INT_MAX, is undefined behaviour. Integer division truncates toward zero: 7 / 2 is 3 and -7 / 2 is -3.',
+    example: `#include <stdio.h>
+#include <limits.h>
+
+int main(void)
+{
+    int a = 7, b = 2;
+
+    printf("%d / %d = %d, remainder %d\\n", a, b, a / b, a % b);
+    printf("an int is %d bytes, up to %d\\n", (int)sizeof(int), INT_MAX);
+    return 0;
+}
+`,
+    see: ['INT_MAX', 'long', 'short', 'unsigned', 'integer promotion'],
+  },
+  long: {
+    group: 'Keywords', kind: 'keyword',
+    sig: 'long name;  long int name;  unsigned long name;  long double name;',
+    text: 'long (long int) is an integer type at least 32 bits wide. On this machine it is 4 bytes, the same as int; on many 64-bit systems it is 8. long long does not exist in C89.\n\nLong constants carry an L suffix (100000L), printf prints longs with %ld (and unsigned long with %lu), and scanf reads them with %ld. Mixing these up prints garbage on machines where long and int differ.\n\nlong double is a separate floating type, here the same as double.',
+    example: `#include <stdio.h>
+#include <limits.h>
+
+int main(void)
+{
+    long big = 123456789L;
+    unsigned long u = 4000000000UL;
+
+    printf("%ld and %lu; LONG_MAX = %ld\\n", big, u, LONG_MAX);
+    return 0;
+}
+`,
+    see: ['int', 'LONG_MAX', 'short', 'unsigned'],
+  },
+  register: {
+    group: 'Keywords', kind: 'keyword',
+    sig: 'register type name;',
+    text: 'register asks the compiler to keep a local variable in a processor register for speed. Modern compilers choose registers better themselves and mostly ignore the hint.\n\nOne rule remains: you cannot take the address of a register variable, so &x is an error. It may only be used for local variables and parameters.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    register int i;
+    long sum = 0;
+
+    for (i = 1; i <= 100; i++)
+        sum += i;
+    printf("1 + ... + 100 = %ld\\n", sum);
+    return 0;
+}
+`,
+    see: ['auto', 'storage duration', 'unary &'],
+  },
+  return: {
+    group: 'Keywords', kind: 'keyword',
+    sig: 'return;  return expression;',
+    text: 'return ends the current function and hands a value back to the caller, converted to the function\'s return type. A void function uses return; with no value, or simply runs off its end.\n\nA non-void function that ends without returning a value gives the caller garbage if it uses the result. Returning from main ends the program: return 0; means success, the same as exit(0).\n\nNever return the address of a local variable: its stack frame disappears when the function returns, leaving a dangling pointer. In See you can watch the frame vanish from the memory picture.',
+    example: `#include <stdio.h>
+
+static int max(int a, int b)
+{
+    if (a > b)
+        return a;
+    return b;
+}
+
+int main(void)
+{
+    printf("max(3, 8) = %d\\n", max(3, 8));
+    return 0;
+}
+`,
+    see: ['void', 'exit', 'stack frame', 'dangling pointer'],
+  },
+  short: {
+    group: 'Keywords', kind: 'keyword',
+    sig: 'short name;  short int name;  unsigned short name;',
+    text: 'short (short int) is an integer type at least 16 bits wide; here it is 2 bytes, from -32768 to 32767.\n\nShorts are promoted to int in every expression, so they only save memory, mostly in large arrays or structures. printf prints them with %d (the promotion makes that correct); scanf needs %hd.',
+    example: `#include <stdio.h>
+#include <limits.h>
+
+int main(void)
+{
+    short s = SHRT_MAX;
+    unsigned short u = 65535;
+
+    printf("short %d, unsigned short %u, %d bytes each\\n", s, (unsigned)u, (int)sizeof(short));
+    return 0;
+}
+`,
+    see: ['int', 'SHRT_MAX', 'integer promotion'],
+  },
+  signed: {
+    group: 'Keywords', kind: 'keyword',
+    sig: 'signed char c;  signed int n;',
+    text: 'signed makes an integer type able to hold negative values. Every integer type except char is already signed by default, so the keyword matters mainly for signed char: plain char may be either signed or unsigned depending on the implementation.\n\nOn its own, signed means signed int. Signed values here are stored in two\'s complement.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    signed char c = -5;
+    signed n = -100;
+
+    printf("%d %d\\n", c, n);
+    return 0;
+}
+`,
+    see: ['unsigned', 'char', "two's complement"],
+  },
+  sizeof: {
+    group: 'Keywords', kind: 'keyword',
+    sig: 'sizeof expression  sizeof(type)',
+    text: 'sizeof is the keyword for the operator that gives the size in bytes of a type or object, as a size_t, computed at compile time. With a type name the parentheses are required: sizeof(int). With an expression they are optional: sizeof x.\n\nSee the entry "sizeof operator" for the details and the classic trap with arrays passed to functions.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    double values[10];
+
+    printf("sizeof(double) = %lu, sizeof values = %lu\\n", (unsigned long)sizeof(double), (unsigned long)sizeof values);
+    return 0;
+}
+`,
+    see: ['sizeof operator', 'size_t'],
+  },
+  static: {
+    group: 'Keywords', kind: 'keyword',
+    sig: 'static type name;  static type function(...)',
+    text: 'static has two meanings depending on where it is used.\n\nInside a function, it gives a local variable static storage duration: it is created once, before the program starts, keeps its value between calls, and is initialised to zero unless given another value. Its name is still only visible inside the function. In See\'s memory picture it lives with the globals, not in the stack frame.\n\nOutside any function, on a variable or function, static gives internal linkage: the name is private to this source file, invisible to the linker and to other files. Making every helper function static that is not needed elsewhere is good practice.\n\nA function returning a pointer to a static local array (as asctime does) is safe, but the next call overwrites the contents.',
+    example: `#include <stdio.h>
+
+static int next_id(void)
+{
+    static int id = 0;
+
+    id++;
+    return id;
+}
+
+int main(void)
+{
+    int a = next_id();
+    int b = next_id();
+    int c = next_id();
+
+    printf("%d %d %d\\n", a, b, c);
+    return 0;
+}
+`,
+    see: ['extern', 'storage duration', 'linkage', 'scope'],
+  },
+  struct: {
+    group: 'Keywords', kind: 'keyword',
+    sig: 'struct tag { type member; ... };  struct tag name;',
+    text: 'struct groups several values of possibly different types into one object, like a record. Each member has its own name and its own place in memory, in the order declared, with possible padding between them for alignment.\n\nMembers are reached with the dot operator on a structure (p.x) and with the arrow operator through a pointer (ptr->x). Structures can be assigned with = and passed to and returned from functions by value, which copies every byte; large ones are usually passed by pointer instead. They cannot be compared with ==.\n\nThe tag name lives in its own name space, so the type is written struct point. typedef struct point Point; gives it a one-word name. In See\'s memory picture a structure is shown as one box with its members inside.',
+    example: `#include <stdio.h>
+
+struct point {
+    int x;
+    int y;
+};
+
+static void move(struct point *p, int dx, int dy)
+{
+    p->x += dx;
+    p->y += dy;
+}
+
+int main(void)
+{
+    struct point a = { 1, 2 };
+    struct point b;
+
+    b = a;
+    move(&b, 10, 10);
+    printf("a = (%d, %d), b = (%d, %d), %d bytes each\\n", a.x, a.y, b.x, b.y, (int)sizeof a);
+    return 0;
+}
+`,
+    see: ['union', 'typedef', '.', '->', 'alignment and padding', 'offsetof'],
+  },
+  switch: {
+    group: 'Keywords', kind: 'keyword',
+    sig: 'switch (integer-expression) { case constant: ... default: ... }',
+    text: 'switch evaluates an integer expression and jumps to the case label with the same value, or to default if none matches. The expression must have an integer type (char and enums count); strings and doubles are not allowed.\n\nAfter the jump, execution carries on through the following cases until a break or the end of the switch. Forgetting a break is the classic switch bug; when falling through is intended, a comment saying so helps the reader.\n\nA switch is often clearer than a chain of else if when one value is compared against many constants.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    const char *ops = "+-*/";
+    int i, a = 12, b = 4, r;
+
+    for (i = 0; ops[i] != '\\0'; i++) {
+        switch (ops[i]) {
+        case '+': r = a + b; break;
+        case '-': r = a - b; break;
+        case '*': r = a * b; break;
+        case '/': r = a / b; break;
+        default: r = 0;
+        }
+        printf("%d %c %d = %d\\n", a, ops[i], b, r);
+    }
+    return 0;
+}
+`,
+    see: ['case', 'default', 'break', 'if'],
+  },
+  typedef: {
+    group: 'Keywords', kind: 'keyword',
+    sig: 'typedef existing-type new_name;',
+    text: 'typedef gives a new name to an existing type. It does not create a new type: the new name and the old one are interchangeable.\n\nIt is written like a variable declaration with typedef in front, and the name being declared becomes the type name: typedef unsigned char byte; typedef int (*compare_fn)(const void *, const void *);. That makes it the easiest way to tame function pointer types.\n\nThe library uses it for size_t, time_t, FILE and others, so the real type can differ between machines without changing programs.',
+    example: `#include <stdio.h>
+
+typedef struct {
+    double re;
+    double im;
+} Complex;
+
+typedef int (*BinaryOp)(int, int);
+
+static int add(int a, int b) { return a + b; }
+
+int main(void)
+{
+    Complex z = { 1.5, -2.0 };
+    BinaryOp op = add;
+
+    printf("z = %g%+gi, op(2, 3) = %d\\n", z.re, z.im, op(2, 3));
+    return 0;
+}
+`,
+    see: ['struct', 'size_t', 'enum'],
+  },
+  union: {
+    group: 'Keywords', kind: 'keyword',
+    sig: 'union tag { type member; ... };',
+    text: 'union is declared like a struct, but all its members share the same memory, starting at the same address. Its size is that of its largest member (plus any padding). Storing into one member overwrites the others.\n\nA union can hold one of several kinds of value at a time; programs usually pair it with a separate field that records which member is in use. Reading a member other than the one last written is implementation-defined; in practice it shows the same bytes reinterpreted, which is a way to look at how a float or int is stored.',
+    example: `#include <stdio.h>
+
+union word {
+    unsigned int whole;
+    unsigned char bytes[4];
+};
+
+int main(void)
+{
+    union word w;
+
+    w.whole = 0x11223344u;
+    printf("size %d; bytes in memory: %02x %02x %02x %02x\\n", (int)sizeof w, w.bytes[0], w.bytes[1], w.bytes[2], w.bytes[3]);
+    return 0;
+}
+`,
+    see: ['struct', 'endianness'],
+  },
+  unsigned: {
+    group: 'Keywords', kind: 'keyword',
+    sig: 'unsigned int n;  unsigned char c;  unsigned long u;',
+    text: 'unsigned makes an integer type hold only non-negative values, using the sign bit for magnitude instead: an unsigned int here runs from 0 to 4294967295. On its own, unsigned means unsigned int. Unsigned constants carry a U suffix.\n\nUnsigned arithmetic never overflows; it wraps around: 0u - 1 is UINT_MAX. That is well defined and useful for hashing and bit manipulation, but a trap in loops that count down, and in comparisons: when an int meets an unsigned int, the int is converted to unsigned, so -1 < 1u is false.\n\nprintf prints unsigned values with %u, %lu, %x or %o.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    unsigned int u = 0;
+    int i = -1;
+
+    u = u - 1;
+    printf("0 - 1 as unsigned = %u\\n", u);
+    printf("-1 < 1u is %s\\n", (unsigned)i < 1u ? "true" : "false");
+    return 0;
+}
+`,
+    see: ['signed', 'UINT_MAX', 'usual arithmetic conversions', 'size_t'],
+  },
+  void: {
+    group: 'Keywords', kind: 'keyword',
+    sig: 'void f(void);  void *p;  (void)expression;',
+    text: 'void means "no type" and has three uses.\n\nAs a return type, the function returns nothing. As a parameter list, f(void), the function takes no arguments; in C89 an empty list f() means "arguments not specified", which turns off argument checking, so write void.\n\nvoid * is the generic pointer type: any object pointer converts to and from it without a cast. malloc returns one, and qsort and memcpy take them. A void * cannot be dereferenced or used in pointer arithmetic until it is converted to a real pointer type. Finally, casting an expression to (void) discards its value on purpose.',
+    example: `#include <stdio.h>
+#include <string.h>
+
+static void greet(void)
+{
+    printf("hello\\n");
+}
+
+int main(void)
+{
+    int a[3] = { 1, 2, 3 }, b[3];
+    void *p = b;
+
+    greet();
+    memcpy(p, a, sizeof a);
+    (void)printf("b[2] = %d\\n", b[2]);
+    return 0;
+}
+`,
+    see: ['pointer', 'malloc', 'return', '(type)'],
+  },
+  volatile: {
+    group: 'Keywords', kind: 'keyword',
+    sig: 'volatile type name;',
+    text: 'volatile tells the compiler that a variable can change in ways it cannot see, so every read must really read memory and every write must really write it, in the order written. Without it, an optimiser may keep the value in a register and never notice the change.\n\nIn standard C it matters for variables changed by a signal handler (volatile sig_atomic_t), for local variables changed between setjmp and longjmp, and for memory-mapped hardware registers. It does not make anything thread-safe.',
+    example: `#include <stdio.h>
+#include <signal.h>
+
+static volatile sig_atomic_t flag = 0;
+
+static void handler(int sig)
+{
+    (void)sig;
+    flag = 1;
+}
+
+int main(void)
+{
+    signal(SIGINT, handler);
+    raise(SIGINT);
+    printf("flag = %d\\n", (int)flag);
+    return 0;
+}
+`,
+    see: ['const', 'sig_atomic_t', 'setjmp'],
+  },
+  while: {
+    group: 'Keywords', kind: 'keyword',
+    sig: 'while (expression) statement',
+    text: 'while repeats its statement as long as the expression is true, testing before each pass; if it is false at the start, the body never runs.\n\nSomething in the body must eventually make the condition false, or the loop never ends; in See the Stop button halts a runaway program. A semicolon straight after the parenthesis, while (x > 0);, is an empty loop body and often an infinite loop.\n\nThe idiom for reading input is while ((c = getchar()) != EOF), with c an int.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    unsigned n = 27;
+    int steps = 0;
+
+    while (n != 1) {
+        n = (n % 2 == 0) ? n / 2 : 3 * n + 1;
+        steps++;
+    }
+    printf("27 reaches 1 after %d steps\\n", steps);
+    return 0;
+}
+`,
+    see: ['do', 'for', 'break', 'continue'],
+  },
+});
+
 // ==== ide/ref/limits.js ====
 /* The C reference: <limits.h> */
 SEE.RefText = Object.assign(SEE.RefText || {}, {
@@ -12787,6 +14060,974 @@ int main(void)
 }
 `,
     see: ['%', 'modf', 'floor'],
+  },
+});
+
+// ==== ide/ref/operators.js ====
+/* The C reference: operators and punctuators */
+SEE.RefText = Object.assign(SEE.RefText || {}, {
+  precedence: {
+    group: 'Operators',
+    sig: 'from tightest to loosest binding',
+    text: 'Precedence decides how an expression without parentheses is grouped; associativity decides the grouping of operators at the same level. From tightest to loosest:\n\n1. Postfix, left to right: a[i]  f(x)  s.m  p->m  x++  x--\n2. Unary, right to left: ++x  --x  &x  *p  +x  -x  ~x  !x  sizeof  (type)x\n3. Multiplicative, left to right: *  /  %\n4. Additive, left to right: +  -\n5. Shift, left to right: <<  >>\n6. Relational, left to right: <  <=  >  >=\n7. Equality, left to right: ==  !=\n8. Bitwise AND: &\n9. Bitwise exclusive OR: ^\n10. Bitwise OR: |\n11. Logical AND: &&\n12. Logical OR: ||\n13. Conditional, right to left: ?:\n14. Assignment, right to left: =  +=  -=  *=  /=  %=  <<=  >>=  &=  ^=  |=\n15. Comma, left to right: ,\n\nThe surprises are the bitwise operators, which bind more loosely than ==: x & 1 == 0 means x & (1 == 0). Also *p++ is *(p++), not (*p)++, and a << 1 + 1 shifts by 2. When in doubt, add parentheses; they cost nothing.\n\nPrecedence is not order of evaluation. In f() + g() * h() the multiplication is grouped first, but the three calls may happen in any order. Only &&, ||, ?: and the comma operator promise an order (see "sequence point").',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    int x = 6;
+    int a[] = { 10, 20, 30 };
+    int *p = a;
+    int v;
+
+    printf("2 + 3 * 4 = %d\\n", 2 + 3 * 4);
+    printf("x & 1 == 0 -> %d, (x & 1) == 0 -> %d\\n", x & (1 == 0), (x & 1) == 0);
+    v = *p++;
+    printf("*p++ gave %d and p now points at %d\\n", v, *p);
+    printf("1 << 1 + 1 = %d\\n", 1 << (1 + 1));
+    return 0;
+}
+`,
+    see: ['sequence point', '?:', ',', '&', '++'],
+  },
+  '+': {
+    group: 'Operators',
+    sig: 'a + b',
+    text: 'a + b adds two numbers. Both operands first go through the usual arithmetic conversions: char and short become int, and if one side is double the other becomes double too, so 1 + 2.5 is 3.5.\n\nSigned integer overflow (INT_MAX + 1) is undefined behaviour; unsigned addition wraps around.\n\nIt also does pointer arithmetic: p + n, with p pointing into an array, points n elements further on, not n bytes. The result must stay inside the array or one past its end. Two pointers cannot be added.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    int a[] = { 10, 20, 30, 40 };
+    int *p = a + 2;
+
+    printf("1 + 2.5 = %g\\n", 1 + 2.5);
+    printf("'A' + 2 = %d = '%c'\\n", 'A' + 2, 'A' + 2);
+    printf("*(a + 2) = %d, *p = %d\\n", *(a + 2), *p);
+    return 0;
+}
+`,
+    see: ['-', '+=', '++', 'usual arithmetic conversions', 'pointer'],
+  },
+  '-': {
+    group: 'Operators',
+    sig: 'a - b',
+    text: 'a - b subtracts. With numbers, the usual arithmetic conversions apply first. With unsigned types the result wraps around instead of going negative: 2u - 3u is 4294967295, a common trap with size_t values such as strlen results.\n\np - n moves a pointer back n elements. p - q, with both pointing into the same array, gives the number of elements between them as a ptrdiff_t.',
+    example: `#include <stdio.h>
+#include <string.h>
+
+int main(void)
+{
+    const char *s = "hello world";
+    const char *space = strchr(s, ' ');
+
+    printf("10 - 3 = %d\\n", 10 - 3);
+    printf("the space is %d characters in\\n", (int)(space - s));
+    printf("2u - 3u = %u\\n", 2u - 3u);
+    return 0;
+}
+`,
+    see: ['+', 'unary -', 'ptrdiff_t', '-='],
+  },
+  '*': {
+    group: 'Operators',
+    sig: 'a * b',
+    text: 'a * b multiplies two numbers after the usual arithmetic conversions.\n\nThe product of two ints is an int, so it can overflow even when you store it in a wider or floating type: in double d = 100000 * 100000; the multiplication overflows before the conversion. Convert one operand first: 100000.0 * 100000.\n\nThe same symbol in front of a single operand is the dereference operator; see "unary *". In a declaration, int *p, it marks a pointer.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    int w = 7, h = 6;
+    double big = 100000.0 * 100000;
+
+    printf("area %d\\n", w * h);
+    printf("100000 * 100000 = %.0f\\n", big);
+    return 0;
+}
+`,
+    see: ['/', '*=', 'unary *', 'usual arithmetic conversions'],
+  },
+  '/': {
+    group: 'Operators',
+    sig: 'a / b',
+    text: 'a / b divides. If both operands are integers the result is an integer, truncated toward zero: 7 / 2 is 3 and -7 / 2 is -3. If either is floating, the division is in floating point: 7 / 2.0 is 3.5.\n\nThis catches everyone once: double avg = sum / count; with int sum and count throws the fraction away before the assignment. Write (double)sum / count.\n\nInteger division by zero is undefined behaviour; in See it stops the program with "integer division by zero" (SIGFPE). Floating division by zero gives inf or nan.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    int sum = 17, count = 4;
+
+    printf("7 / 2 = %d, -7 / 2 = %d, 7 / 2.0 = %g\\n", 7 / 2, -7 / 2, 7 / 2.0);
+    printf("int average %d, real average %g\\n", sum / count, (double)sum / count);
+    return 0;
+}
+`,
+    see: ['%', '*', '(type)', 'SIGFPE'],
+  },
+  '%': {
+    group: 'Operators',
+    sig: 'a % b',
+    text: 'a % b is the remainder of the integer division a / b, so that (a / b) * b + a % b == a. Both operands must be integers; for doubles use fmod.\n\nThe sign of the result follows a: 7 % 3 is 1 and -7 % 3 is -1 (C89 allowed either sign for negative operands; every modern compiler truncates toward zero as here). So x % 2 == 1 is false for negative odd numbers; test x % 2 != 0.\n\nCommon uses: n % 10 is the last decimal digit, i % n wraps an index around a circular buffer, and a % b == 0 tests divisibility. b must not be 0.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    int n = 1234, sum = 0;
+
+    while (n > 0) {
+        sum += n % 10;
+        n /= 10;
+    }
+    printf("digit sum of 1234 = %d\\n", sum);
+    printf("7 %% 3 = %d, -7 %% 3 = %d\\n", 7 % 3, -7 % 3);
+    return 0;
+}
+`,
+    see: ['/', 'fmod', '%='],
+  },
+  'unary +': {
+    group: 'Operators',
+    sig: '+a',
+    text: 'Unary + returns the value of its operand after integer promotion. It does nothing else, and exists mostly for symmetry with unary minus, as in +5.\n\nIts one observable effect: +c for a char c has type int.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    char c = 'x';
+
+    printf("sizeof c = %d, sizeof +c = %d\\n", (int)sizeof c, (int)sizeof +c);
+    return 0;
+}
+`,
+    see: ['unary -', 'integer promotion'],
+  },
+  'unary -': {
+    group: 'Operators',
+    sig: '-a',
+    text: 'Unary - negates its operand after integer promotion.\n\nNegating INT_MIN overflows, which is undefined behaviour, because there is no positive int that large. Negating an unsigned value gives the wrap-around complement: -1u is UINT_MAX.\n\nA negative number literal such as -5 is really unary minus applied to the constant 5.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    int a = 5;
+    double d = -2.5;
+
+    printf("-a = %d, -d = %g, -1u = %u\\n", -a, -d, -1u);
+    return 0;
+}
+`,
+    see: ['-', 'INT_MIN', "two's complement"],
+  },
+  '<': {
+    group: 'Operators',
+    sig: 'a < b',
+    text: 'a < b is 1 if a is less than b and 0 otherwise. The result is an int.\n\nThe usual arithmetic conversions apply first, which gives a famous trap: comparing a negative int with an unsigned value converts the int to unsigned, so -1 < 1u is 0 (false). The same happens with sizeof and strlen results, which are unsigned.\n\nComparisons do not chain: 1 < x < 5 means (1 < x) < 5, which is always true since 0 and 1 are both less than 5. Write 1 < x && x < 5. Pointers may be compared only when they point into the same array.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    int x = 10;
+
+    printf("3 < 4 is %d\\n", 3 < 4);
+    printf("1 < x < 5 is %d, but 1 < x && x < 5 is %d\\n", (1 < x) < 5, 1 < x && x < 5);
+    return 0;
+}
+`,
+    see: ['>', '<=', '>=', 'usual arithmetic conversions', '&&'],
+  },
+  '>': {
+    group: 'Operators',
+    sig: 'a > b',
+    text: 'a > b is 1 if a is greater than b and 0 otherwise. The same rules as < apply: the usual arithmetic conversions first (watch signed against unsigned), and no chaining.\n\nTo compare strings use strcmp; > on two char pointers compares their addresses.',
+    example: `#include <stdio.h>
+#include <string.h>
+
+int main(void)
+{
+    const char *a = "pear", *b = "apple";
+
+    printf("5 > 3 is %d\\n", 5 > 3);
+    printf("\\"%s\\" sorts after \\"%s\\": %d\\n", a, b, strcmp(a, b) > 0);
+    return 0;
+}
+`,
+    see: ['<', '>=', 'strcmp'],
+  },
+  '<=': {
+    group: 'Operators',
+    sig: 'a <= b',
+    text: 'a <= b is 1 if a is less than or equal to b and 0 otherwise.\n\nIn a loop over an array of n elements, i <= n is almost always a bug: it runs once too many and touches a[n], one past the end. Use i < n.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    int i;
+
+    for (i = 1; i <= 5; i++)
+        printf("%d ", i);
+    printf("\\n");
+    return 0;
+}
+`,
+    see: ['<', '>=', 'buffer overflow'],
+  },
+  '>=': {
+    group: 'Operators',
+    sig: 'a >= b',
+    text: 'a >= b is 1 if a is greater than or equal to b and 0 otherwise.\n\nWith an unsigned left side, a test like u >= 0 is always true; a loop for (u = n - 1; u >= 0; u--) never ends. Many compilers warn about such comparisons; See does not, so watch for them.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    int marks = 72;
+
+    printf("%d >= 50: %s\\n", marks, marks >= 50 ? "pass" : "fail");
+    return 0;
+}
+`,
+    see: ['<=', '>', 'unsigned'],
+  },
+  '==': {
+    group: 'Operators',
+    sig: 'a == b',
+    text: 'a == b is 1 if the two values are equal and 0 otherwise.\n\nDo not confuse it with =, which assigns: if (x = 0) sets x to 0 and is always false. See warns about an assignment used as a condition.\n\n== compares values, not contents: on two strings (char pointers) it asks whether they are at the same address, so use strcmp(a, b) == 0. Structures cannot be compared with == at all. And computed floating-point values are rarely exactly equal; compare with a tolerance.',
+    example: `#include <stdio.h>
+#include <string.h>
+
+int main(void)
+{
+    char a[] = "cat", b[] = "cat";
+
+    printf("2 + 2 == 4 is %d\\n", 2 + 2 == 4);
+    printf("a == b is %d (different arrays)\\n", a == b);
+    printf("strcmp(a, b) == 0 is %d\\n", strcmp(a, b) == 0);
+    return 0;
+}
+`,
+    see: ['!=', '=', 'strcmp', 'fabs'],
+  },
+  '!=': {
+    group: 'Operators',
+    sig: 'a != b',
+    text: 'a != b is 1 if the values differ and 0 if they are equal.\n\nIt is the usual loop test when scanning a string or reading input: while (*s != \'\\0\') and while ((c = getchar()) != EOF). Notice the extra parentheses in the second: != binds more tightly than =, so without them c would get the result of the comparison.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    const char *s = "length";
+    int n = 0;
+
+    while (s[n] != '\\0')
+        n++;
+    printf("\\"%s\\" has %d characters\\n", s, n);
+    return 0;
+}
+`,
+    see: ['==', 'NUL terminator', 'EOF'],
+  },
+  '!': {
+    group: 'Operators',
+    sig: '!a',
+    text: '!a is logical NOT: 1 if a is zero (or a null pointer), and 0 otherwise.\n\nif (!p) is a common way to write if (p == NULL), and !!x turns any non-zero value into exactly 1.\n\nDo not confuse it with ~, the bitwise complement: !5 is 0 but ~5 is -6.',
+    example: `#include <stdio.h>
+#include <stdlib.h>
+
+int main(void)
+{
+    int *p = malloc(sizeof *p);
+
+    if (!p) {
+        printf("out of memory\\n");
+        return 1;
+    }
+    printf("!0 = %d, !7 = %d, !!7 = %d, ~5 = %d\\n", !0, !7, !!7, ~5);
+    free(p);
+    return 0;
+}
+`,
+    see: ['&&', '||', '~'],
+  },
+  '&&': {
+    group: 'Operators',
+    sig: 'a && b',
+    text: 'a && b is logical AND: 1 if both operands are non-zero, else 0.\n\nIt short-circuits: a is evaluated first, and if it is 0, b is not evaluated at all. That makes guards like p != NULL && p->count > 0 and i < n && a[i] != 0 safe: the second test only runs when the first makes it valid. There is a sequence point after a.\n\nDo not confuse it with &, the bitwise AND, which evaluates both sides and combines bits.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    int a[] = { 4, 8, 0, 3 };
+    int n = 4, i = 0;
+
+    while (i < n && a[i] != 0)
+        i++;
+    printf("first zero at index %d\\n", i);
+    printf("2 && 3 = %d, 2 & 1 = %d\\n", 2 && 3, 2 & 1);
+    return 0;
+}
+`,
+    see: ['||', '!', '&', 'sequence point'],
+  },
+  '||': {
+    group: 'Operators',
+    sig: 'a || b',
+    text: 'a || b is logical OR: 1 if either operand is non-zero, else 0.\n\nIt short-circuits: if a is non-zero, b is not evaluated. So in x == 0 || 100 / x > 5 the division never runs when x is 0.\n\n&& binds more tightly than ||, so a || b && c means a || (b && c). Do not confuse || with |, the bitwise OR.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    int x = 0;
+    char c = 'E';
+
+    if (x == 0 || 100 / x > 5)
+        printf("safe: the division was skipped\\n");
+    if (c == 'e' || c == 'E')
+        printf("'%c' is an e\\n", c);
+    return 0;
+}
+`,
+    see: ['&&', '!', '|'],
+  },
+  '~': {
+    group: 'Operators',
+    sig: '~a',
+    text: '~a flips every bit of an integer (its one\'s complement), after integer promotion. In two\'s complement, ~x equals -x - 1, so ~0 is -1 and ~5 is -6.\n\nIts main use is building masks: x & ~FLAG clears the FLAG bits and keeps the rest. Because of promotion, ~ on an unsigned char gives an int with the high bits set; cast the result back if you want only 8 bits.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    unsigned flags = 0x0F;
+    unsigned char b = 0x0F;
+
+    printf("~0 = %d, ~5 = %d\\n", ~0, ~5);
+    printf("clear bit 1 of 0x%02X: 0x%02X\\n", flags, flags & ~0x02u);
+    printf("~b = 0x%X, (unsigned char)~b = 0x%X\\n", (unsigned)~b, (unsigned)(unsigned char)~b);
+    return 0;
+}
+`,
+    see: ['&', '|', '^', '!', "two's complement"],
+  },
+  '&': {
+    group: 'Operators',
+    sig: 'a & b',
+    text: 'a & b is bitwise AND: each bit of the result is 1 only where both operands have a 1. It works on integers only.\n\nIt is used to test and keep bits: x & 1 is 1 for odd x, and flags & MASK keeps only the bits in MASK. Its precedence is lower than ==, so always write (x & MASK) == 0 with parentheses.\n\nThe same symbol in front of a single operand takes an address; see "unary &". Do not confuse it with &&.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    unsigned x = 0xB6;
+    int i;
+
+    printf("0x%X & 0x0F = 0x%X\\n", x, x & 0x0Fu);
+    printf("bits of 0x%X: ", x);
+    for (i = 7; i >= 0; i--)
+        putchar((x & (1u << i)) ? '1' : '0');
+    printf("\\n");
+    return 0;
+}
+`,
+    see: ['|', '^', '~', '&=', 'unary &', '&&', 'precedence'],
+  },
+  '|': {
+    group: 'Operators',
+    sig: 'a | b',
+    text: 'a | b is bitwise OR: each bit of the result is 1 where either operand has a 1.\n\nIt is used to combine flags (READ | WRITE) and to set bits: x | (1u << n) sets bit n. Like &, its precedence is below the comparisons, so add parentheses. Do not confuse it with ||.',
+    example: `#include <stdio.h>
+
+#define READ  1u
+#define WRITE 2u
+#define EXEC  4u
+
+int main(void)
+{
+    unsigned mode = READ | WRITE;
+
+    printf("mode = %u\\n", mode);
+    printf("can write: %s, can exec: %s\\n", (mode & WRITE) ? "yes" : "no", (mode & EXEC) ? "yes" : "no");
+    return 0;
+}
+`,
+    see: ['&', '^', '|=', '||'],
+  },
+  '^': {
+    group: 'Operators',
+    sig: 'a ^ b',
+    text: 'a ^ b is bitwise exclusive OR: each bit of the result is 1 where exactly one of the operands has a 1.\n\nx ^ mask toggles the bits in mask, and x ^ x is 0. It is not exponentiation: 2 ^ 3 is 1, not 8. For powers use pow, or shift for powers of two (1 << 3).',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    unsigned light = 0;
+
+    light ^= 1u;
+    printf("toggled on: %u\\n", light);
+    light ^= 1u;
+    printf("toggled off: %u\\n", light);
+    printf("2 ^ 3 = %d (not 8)\\n", 2 ^ 3);
+    return 0;
+}
+`,
+    see: ['&', '|', '~', '^=', 'pow'],
+  },
+  '<<': {
+    group: 'Operators',
+    sig: 'a << n',
+    text: 'a << n shifts the bits of a left by n places, filling with zeros. For unsigned values that is multiplying by 2 to the n, modulo the type\'s range: 1u << 4 is 16.\n\nn must be at least 0 and less than the width of the promoted left operand (32 here); otherwise the behaviour is undefined. Shifting a 1 into or past the sign bit of a signed int is undefined too, so use unsigned values for bit work.\n\nThe operator binds more loosely than + and -, so 1 << n + 1 shifts by n + 1.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    unsigned i;
+
+    for (i = 0; i < 5; i++)
+        printf("1u << %u = %u\\n", i, 1u << i);
+    return 0;
+}
+`,
+    see: ['>>', '<<=', '&', '|'],
+  },
+  '>>': {
+    group: 'Operators',
+    sig: 'a >> n',
+    text: 'a >> n shifts the bits of a right by n places. For unsigned values the new high bits are zeros and the result is a / 2 to the n, rounded down.\n\nFor a negative signed value the result is implementation-defined: here, as on most machines, the sign bit is copied in (an arithmetic shift), so -16 >> 2 is -4. Use unsigned types for bit manipulation. As with <<, n must be less than the operand\'s width.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    unsigned x = 0xABCDu;
+
+    printf("high byte 0x%X, low byte 0x%X\\n", (x >> 8) & 0xFFu, x & 0xFFu);
+    printf("100 >> 2 = %d, -16 >> 2 = %d\\n", 100 >> 2, -16 >> 2);
+    return 0;
+}
+`,
+    see: ['<<', '>>=', '&'],
+  },
+  '=': {
+    group: 'Operators',
+    sig: 'lvalue = expression',
+    text: 'x = e stores the value of e into x, converting it to x\'s type, and the whole expression then has the new value of x. The left side must be a modifiable lvalue: a variable, an array element, a member, or *p. An array name cannot be assigned to; copy arrays with memcpy and strings with strcpy.\n\nBecause assignment is an expression and groups right to left, a = b = 0 sets both, and while ((c = getchar()) != EOF) assigns and tests in one go.\n\nIn a declaration, int x = 5; is an initialisation, not an assignment, though it looks the same. Do not confuse = with ==; see warns when an assignment is used as a condition.',
+    example: `#include <stdio.h>
+#include <string.h>
+
+int main(void)
+{
+    int a, b;
+    char name[16];
+    double d;
+
+    a = b = 7;
+    d = a / 2;
+    strcpy(name, "Ada");
+    printf("a = %d, b = %d, d = %g, name = %s\\n", a, b, d, name);
+    return 0;
+}
+`,
+    see: ['==', 'lvalue', '+=', 'strcpy'],
+  },
+  '+=': {
+    group: 'Operators',
+    sig: 'x += e',
+    text: 'x += e adds e to x and stores the result in x. It is the same as x = x + e, except that x is evaluated only once, which matters for something like a[i++] += 1.\n\nOn a pointer, p += n moves it n elements forward.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    int total = 0, i;
+
+    for (i = 1; i <= 4; i++)
+        total += i * 10;
+    printf("total = %d\\n", total);
+    return 0;
+}
+`,
+    see: ['+', '=', '++', '-='],
+  },
+  '-=': {
+    group: 'Operators',
+    sig: 'x -= e',
+    text: 'x -= e subtracts e from x and stores the result in x, like x = x - e with x evaluated once.\n\nWith an unsigned x, going below zero wraps around to a very large number.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    int balance = 100;
+
+    balance -= 30;
+    balance -= 45;
+    printf("balance %d\\n", balance);
+    return 0;
+}
+`,
+    see: ['-', '+=', '--'],
+  },
+  '*=': {
+    group: 'Operators',
+    sig: 'x *= e',
+    text: 'x *= e multiplies x by e and stores the result in x. x *= a + b means x = x * (a + b): the right side is evaluated as a whole first.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    long fact = 1;
+    int i;
+
+    for (i = 2; i <= 10; i++)
+        fact *= i;
+    printf("10! = %ld\\n", fact);
+    return 0;
+}
+`,
+    see: ['*', '/=', '='],
+  },
+  '/=': {
+    group: 'Operators',
+    sig: 'x /= e',
+    text: 'x /= e divides x by e and stores the result in x. With integer x the division truncates, just like /. e must not be 0 for integers.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    int n = 1000, halvings = 0;
+
+    while (n > 1) {
+        n /= 2;
+        halvings++;
+    }
+    printf("1000 halves to 1 in %d steps\\n", halvings);
+    return 0;
+}
+`,
+    see: ['/', '*=', '%='],
+  },
+  '%=': {
+    group: 'Operators',
+    sig: 'x %= e',
+    text: 'x %= e replaces x with the remainder of x / e. Both must be integers and e must not be 0. It is handy for keeping an index inside a circular buffer.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    int pos = 0, i;
+
+    for (i = 0; i < 7; i++) {
+        printf("%d ", pos);
+        pos += 1;
+        pos %= 3;
+    }
+    printf("\\n");
+    return 0;
+}
+`,
+    see: ['%', '/='],
+  },
+  '<<=': {
+    group: 'Operators',
+    sig: 'x <<= n',
+    text: 'x <<= n shifts x left by n bits and stores the result in x. The same limits as << apply: n below the width of the type, and use unsigned values.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    unsigned bit = 1u;
+    int i;
+
+    for (i = 0; i < 4; i++) {
+        printf("%u ", bit);
+        bit <<= 1;
+    }
+    printf("\\n");
+    return 0;
+}
+`,
+    see: ['<<', '>>='],
+  },
+  '>>=': {
+    group: 'Operators',
+    sig: 'x >>= n',
+    text: 'x >>= n shifts x right by n bits and stores the result in x. Repeated x >>= 1 walks through the bits of an unsigned value from the lowest.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    unsigned x = 0xF0u;
+    int ones = 0;
+
+    while (x != 0) {
+        ones += x & 1u;
+        x >>= 1;
+    }
+    printf("0xF0 has %d bits set\\n", ones);
+    return 0;
+}
+`,
+    see: ['>>', '<<='],
+  },
+  '&=': {
+    group: 'Operators',
+    sig: 'x &= e',
+    text: 'x &= e keeps only the bits of x that are also set in e. Combined with ~ it clears flags: flags &= ~WRITE.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    unsigned flags = 7u;
+
+    flags &= ~2u;
+    printf("after clearing bit 1: %u\\n", flags);
+    return 0;
+}
+`,
+    see: ['&', '|=', '~'],
+  },
+  '^=': {
+    group: 'Operators',
+    sig: 'x ^= e',
+    text: 'x ^= e toggles the bits of x that are set in e: applying the same ^= twice restores x. It is the basis of simple checksums and the XOR swap trick.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    char msg[] = "secret";
+    int i;
+
+    for (i = 0; msg[i] != '\\0'; i++)
+        msg[i] ^= 0x20;
+    printf("%s\\n", msg);
+    for (i = 0; msg[i] != '\\0'; i++)
+        msg[i] ^= 0x20;
+    printf("%s\\n", msg);
+    return 0;
+}
+`,
+    see: ['^', '&=', '|='],
+  },
+  '|=': {
+    group: 'Operators',
+    sig: 'x |= e',
+    text: 'x |= e sets in x every bit that is set in e and leaves the others alone. It is the usual way to switch flags on: flags |= READ.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    unsigned flags = 0;
+
+    flags |= 1u;
+    flags |= 4u;
+    printf("flags = %u\\n", flags);
+    return 0;
+}
+`,
+    see: ['|', '&=', '^='],
+  },
+  '++': {
+    group: 'Operators',
+    sig: '++x  x++',
+    text: '++ adds 1 to a variable (or moves a pointer to the next element). The operand must be a modifiable lvalue.\n\nPrefix ++x increments first, and the expression\'s value is the new value. Postfix x++ gives the old value, and the increment happens some time before the next sequence point. On its own as a statement, i++; and ++i; do the same thing.\n\nThe difference shows when the value is used: with i = 5, a = i++ sets a to 5, while a = ++i sets a to 6. *p++ reads the element p points at and then moves p on; it is (*p)++ that increments the element.\n\nModifying a variable twice, or modifying and reading it, without a sequence point in between is undefined behaviour: i = i++ and printf("%d %d", i, i++) have no defined result.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    int i = 5, a, b;
+    char s[] = "abc";
+    char *p = s;
+
+    a = i++;
+    b = ++i;
+    printf("a = %d, b = %d, i = %d\\n", a, b, i);
+    while (*p)
+        putchar(*p++);
+    putchar('\\n');
+    return 0;
+}
+`,
+    see: ['--', '+=', 'sequence point', 'undefined behaviour'],
+  },
+  '--': {
+    group: 'Operators',
+    sig: '--x  x--',
+    text: '-- subtracts 1 from a variable (or moves a pointer back one element). Prefix --x gives the new value; postfix x-- gives the old value and decrements afterwards.\n\nwhile (n-- > 0) runs the body exactly n times, with n going from n - 1 down to 0 inside it. Careful with unsigned counters: decrementing 0 wraps to the largest value instead of becoming negative.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    int n = 3;
+
+    while (n-- > 0)
+        printf("n inside the loop: %d\\n", n);
+    printf("n after the loop: %d\\n", n);
+    return 0;
+}
+`,
+    see: ['++', '-=', 'sequence point'],
+  },
+  'unary &': {
+    group: 'Operators',
+    sig: '&lvalue',
+    text: '&x is the address-of operator: it gives a pointer to x. If x has type int, &x has type int *.\n\nIt is how a function gets to change a caller\'s variable: scanf("%d", &n) and swap(&a, &b) pass addresses so the function can write through them. In See\'s memory picture a pointer value is drawn as an arrow to the box it addresses.\n\nThe operand must be an object in memory: not a constant, not an expression like a + 1, and not a register variable. For an array, a and &a[0] are the same address (the array decays), while &a points to the whole array. Do not confuse it with the bitwise & between two operands.',
+    example: `#include <stdio.h>
+
+static void swap(int *x, int *y)
+{
+    int t = *x;
+
+    *x = *y;
+    *y = t;
+}
+
+int main(void)
+{
+    int a = 1, b = 2;
+
+    swap(&a, &b);
+    printf("a = %d, b = %d\\n", a, b);
+    printf("&a and &b are %s\\n", &a != &b ? "different addresses" : "the same");
+    return 0;
+}
+`,
+    see: ['unary *', 'pointer', '&', 'scanf'],
+  },
+  'unary *': {
+    group: 'Operators',
+    sig: '*pointer',
+    text: '*p is the dereference (indirection) operator: it gives the object p points to. If p has type int *, *p is an int, and it is an lvalue, so *p = 5 writes through the pointer.\n\nThe pointer must point to a valid object. Dereferencing NULL, an uninitialised pointer, or a pointer to memory that was freed or to a local variable whose function has returned is undefined behaviour; in See it usually stops the program with a segmentation fault and the memory picture shows where the arrow points.\n\n*(a + i) is exactly a[i]. A void * cannot be dereferenced; convert it to a real pointer type first. In a declaration, int *p, the star means "pointer to", not dereference.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    int x = 10;
+    int *p = &x;
+    int a[] = { 1, 2, 3 };
+
+    *p = 20;
+    printf("x = %d, *p = %d\\n", x, *p);
+    printf("*(a + 2) = %d, a[2] = %d\\n", *(a + 2), a[2]);
+    return 0;
+}
+`,
+    see: ['unary &', '->', '[]', 'pointer', 'dangling pointer', 'NULL'],
+  },
+  '.': {
+    group: 'Operators',
+    sig: 'structure.member',
+    text: 's.m selects member m of the structure or union s. The left side must be a structure itself, not a pointer to one; for a pointer use p->m, which is (*p).m.\n\nThe result is an lvalue when s is, so s.x = 3 assigns to the member. In See\'s memory picture, each member is a field inside the structure\'s box.',
+    example: `#include <stdio.h>
+
+struct date {
+    int day, month, year;
+};
+
+int main(void)
+{
+    struct date d;
+
+    d.day = 14;
+    d.month = 7;
+    d.year = 1789;
+    printf("%02d/%02d/%d\\n", d.day, d.month, d.year);
+    return 0;
+}
+`,
+    see: ['->', 'struct', 'union'],
+  },
+  '->': {
+    group: 'Operators',
+    sig: 'pointer->member',
+    text: 'p->m selects member m of the structure that p points to. It is shorthand for (*p).m; the parentheses are needed there because . binds more tightly than *.\n\nIt is everywhere in code with linked lists, trees and structures allocated with malloc, as in node->next->value. p must point to a valid structure: p->m with p NULL is a segmentation fault, so test the pointer first.',
+    example: `#include <stdio.h>
+#include <stdlib.h>
+
+struct node {
+    int value;
+    struct node *next;
+};
+
+int main(void)
+{
+    struct node b = { 2, NULL };
+    struct node a = { 1, NULL };
+    struct node *p;
+
+    a.next = &b;
+    for (p = &a; p != NULL; p = p->next)
+        printf("%d ", p->value);
+    printf("\\n");
+    return 0;
+}
+`,
+    see: ['.', 'unary *', 'struct', 'pointer'],
+  },
+  '[]': {
+    group: 'Operators',
+    sig: 'array[index]',
+    text: 'a[i] is the element at index i. Indexes start at 0, so an array of n elements has indexes 0 to n - 1.\n\nIt is defined as *(a + i): the array name decays to a pointer to its first element and i elements are added. So it works on pointers too, and the strange-looking i[a] means the same thing.\n\nC never checks the index. Reading or writing a[n] or a[-1] is undefined behaviour that may silently corrupt other variables; See stops the program at such an access and names the array and its last valid index.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    int a[5] = { 2, 3, 5, 7, 11 };
+    int grid[2][3] = { { 1, 2, 3 }, { 4, 5, 6 } };
+    int *p = a + 1;
+
+    printf("a[0] = %d, a[4] = %d\\n", a[0], a[4]);
+    printf("p[1] = %d, 2[a] = %d\\n", p[1], 2[a]);
+    printf("grid[1][2] = %d\\n", grid[1][2]);
+    return 0;
+}
+`,
+    see: ['unary *', 'array decay', 'buffer overflow', 'pointer'],
+  },
+  '()': {
+    group: 'Operators',
+    sig: 'function(arguments)',
+    text: 'f(a, b) calls a function. Each argument is evaluated and copied into the parameter (C always passes by value; to let a function change your variable, pass its address). The value of the call is the function\'s return value.\n\nThe order in which the arguments are evaluated is unspecified, so f(i++, i) is undefined. The commas between arguments are separators, not the comma operator.\n\nThe function must be declared before the call. In C89 calling an undeclared function makes the compiler assume it returns int, which breaks functions such as sqrt that return double. The left side can also be a function pointer: fp(x) and (*fp)(x) are the same. In See, each call adds a stack frame to the memory picture.',
+    example: `#include <stdio.h>
+
+static int square(int x)
+{
+    return x * x;
+}
+
+static void try_to_change(int x)
+{
+    x = 99;
+}
+
+int main(void)
+{
+    int n = 4;
+    int (*fp)(int) = square;
+
+    try_to_change(n);
+    printf("square(%d) = %d, via pointer %d\\n", n, square(n), fp(n + 1));
+    return 0;
+}
+`,
+    see: ['stack frame', 'return', 'sequence point', 'va_list'],
+  },
+  '(type)': {
+    group: 'Operators',
+    sig: '(type) expression',
+    text: 'A cast, (type)e, converts the value of e to the named type. (double)7 / 2 is 3.5; (int)3.99 is 3 (truncated toward zero); (unsigned char)c turns a negative char into 0 to 255.\n\nA cast only converts the value; it does not change the variable. Converting a floating value too large for the integer type is undefined behaviour, and converting to a narrower integer type keeps the low bits.\n\nCasts between pointer types make the compiler accept code it would otherwise reject, so they can hide real mistakes. In C there is no need to cast the void * that malloc returns; doing so can hide a missing #include <stdlib.h>.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    int sum = 7, n = 2;
+    char c = (char)200;
+
+    printf("%d / %d = %d, as double %g\\n", sum, n, sum / n, (double)sum / n);
+    printf("(int)3.99 = %d, (int)-3.99 = %d\\n", (int)3.99, (int)-3.99);
+    printf("c = %d, (unsigned char)c = %d\\n", c, (unsigned char)c);
+    return 0;
+}
+`,
+    see: ['usual arithmetic conversions', 'void', '/'],
+  },
+  'sizeof operator': {
+    group: 'Operators',
+    sig: 'sizeof expression  sizeof(type)',
+    text: 'sizeof gives the size in bytes of a type or of the type of an expression, as a size_t. It is computed at compile time and does not evaluate its operand: sizeof(i++) leaves i unchanged. sizeof(char) is always 1.\n\nsizeof on an array gives the whole array\'s size, so sizeof a / sizeof a[0] is the number of elements. But an array parameter is really a pointer, so inside a function that takes int a[], sizeof a is the size of a pointer (4 here), not the array. Pass the length separately.\n\nsizeof a structure includes any padding, so it can be more than the sum of its members. The idiom p = malloc(n * sizeof *p) gets the size right even if p\'s type changes. Print the result with %lu after a cast to unsigned long.',
+    example: `#include <stdio.h>
+
+struct mixed {
+    char c;
+    int i;
+};
+
+static void f(int a[])
+{
+    printf("inside f, sizeof a = %lu (a pointer)\\n", (unsigned long)sizeof a);
+}
+
+int main(void)
+{
+    int a[10];
+
+    printf("sizeof a = %lu, elements = %lu\\n", (unsigned long)sizeof a, (unsigned long)(sizeof a / sizeof a[0]));
+    printf("sizeof(struct mixed) = %lu\\n", (unsigned long)sizeof(struct mixed));
+    f(a);
+    return 0;
+}
+`,
+    see: ['sizeof', 'size_t', 'array decay', 'alignment and padding'],
+  },
+  '?:': {
+    group: 'Operators',
+    sig: 'condition ? a : b',
+    text: 'c ? a : b evaluates c; if it is non-zero the result is a, otherwise b. Only the chosen one of a and b is evaluated, and there is a sequence point after c.\n\nIt is an expression, so it can be used where an if statement cannot: inside a printf argument, an initialiser or a return. a and b are converted to a common type, so x ? 1 : 2.5 is a double either way.\n\nIt groups right to left, so a chain like n < 0 ? "negative" : n == 0 ? "zero" : "positive" reads naturally. Deeply nested ones are better written as if statements.',
+    example: `#include <stdio.h>
+
+int main(void)
+{
+    int n;
+
+    for (n = -1; n <= 1; n++)
+        printf("%d is %s\\n", n, n < 0 ? "negative" : n == 0 ? "zero" : "positive");
+    printf("%d item%s\\n", 1, 1 == 1 ? "" : "s");
+    return 0;
+}
+`,
+    see: ['if', 'else', 'sequence point'],
+  },
+  ',': {
+    group: 'Operators',
+    sig: 'a, b',
+    text: 'The comma operator evaluates a, throws its value away, then evaluates b; the result is b. There is a sequence point between them, so a is finished before b starts.\n\nIts main use is in for loops that update two variables: for (i = 0, j = n - 1; i < j; i++, j--).\n\nNot every comma is the comma operator. The commas between function arguments, in declarations (int a, b;) and in initialisers are separators, with no ordering guarantee. Comma has the lowest precedence of all, so x = 1, 2 sets x to 1.',
+    example: `#include <stdio.h>
+#include <string.h>
+
+int main(void)
+{
+    char s[] = "drawer";
+    int i, j;
+    char t;
+
+    for (i = 0, j = (int)strlen(s) - 1; i < j; i++, j--) {
+        t = s[i];
+        s[i] = s[j];
+        s[j] = t;
+    }
+    printf("%s\\n", s);
+    return 0;
+}
+`,
+    see: ['for', 'sequence point', 'precedence'],
+  },
+  '#': {
+    group: 'Operators',
+    sig: '#define NAME(x) #x',
+    text: 'Inside a function-like macro definition, #x turns the macro argument x into a string literal, exactly as written in the call. This "stringizing" is how assert can print the failing expression.\n\nAt the start of a line, # introduces a preprocessor directive such as #include or #define; that is a different use of the same character.',
+    example: `#include <stdio.h>
+
+#define SHOW(expr) printf("%s = %d\\n", #expr, (expr))
+
+int main(void)
+{
+    int x = 6;
+
+    SHOW(x * 7);
+    SHOW(x % 4 + 1);
+    return 0;
+}
+`,
+    see: ['##', 'assert'],
+  },
+  '##': {
+    group: 'Operators',
+    sig: '#define NAME(a, b) a ## b',
+    text: 'Inside a macro definition, a ## b pastes two tokens together into one, before the result is scanned again. It lets a macro build identifiers, such as declaring a set of similarly named variables or functions.\n\nThe pasted result must be a valid single token.',
+    example: `#include <stdio.h>
+
+#define VAR(n) value_ ## n
+
+int main(void)
+{
+    int VAR(1) = 10, VAR(2) = 20;
+
+    printf("value_1 = %d, value_2 = %d\\n", value_1, value_2);
+    return 0;
+}
+`,
+    see: ['#'],
   },
 });
 
