@@ -23198,6 +23198,194 @@ int main(void)
   ],
 });
 
+// ==== ide/tours.js ====
+// The welcome card and the guided tours: a tour points at parts of the studio one by one and can
+// drive the debugger, so the explanation and the memory picture move together.
+(function (SEE) {
+  'use strict';
+  const { h } = SEE.UI;
+  const Tours = SEE.Tours = {};
+  Tours.list = [];
+  Tours.add = (t) => { Tours.list.push(t); };
+
+  Tours.welcome = function (app) {
+    const go = (fn) => () => { SEE.UI.closeAllModals(); setTimeout(fn, 60); };
+    const choice = (title, text, fn, id) => { const b = h('button.choice', { type: 'button', id }, h('b', title), h('span', text)); b.addEventListener('click', go(fn)); return b; };
+    SEE.UI.modal({
+      title: 'Welcome to See', wide: true,
+      body: h('div.welcome',
+        h('h2', 'C, step by step, down to the byte.'),
+        h('p', 'See compiles and runs C89 right here in the browser, on a simulated 32-bit machine. Step through your program one line at a time and watch every frame on the stack, every block on the heap and every pointer, at real addresses. Change any value while it is paused, or step backwards to see what a line did.'),
+        h('div.choices',
+          choice('Take the tour', 'Two minutes: build, run, step, and read the memory picture.', () => Tours.start(app, 'welcome'), 'wTour'),
+          choice('Start the lessons', 'From the first printf to pointers to pointers, with the memory drawn at every step.', () => SEE.Lessons && SEE.Lessons.browse(app), 'wLessons'),
+          choice('Open an example', 'Hundreds of commented programs, from games to linked lists.', () => SEE.Library && SEE.Library.browse(app), 'wLibrary'),
+          choice('Just write C', 'hello.c is open. F5 starts it in the debugger.', () => { if (app.active) app.active.editor.focus(); }, 'wWrite')),
+        h('p.muted', 'Made by Jyotiprakash Mishra. ', (() => { const a = h('a', { href: '#', id: 'welcomeAuthor' }, 'About the author'); a.addEventListener('click', (e) => { e.preventDefault(); SEE.UI.closeAllModals(); setTimeout(() => SEE.authorDialog(), 60); }); return a; })())),
+      buttons: [{ label: 'Close', value: true }],
+    });
+  };
+
+  Tours.menu = function (app) {
+    if (!Tours.list.length) { SEE.UI.toast('No tours yet', 'err'); return; }
+    const box = h('div');
+    for (const t of Tours.list) {
+      const row = h('div.list-row.clickable', h('div.grow', h('b', t.title), h('div.muted', t.blurb || '')));
+      row.addEventListener('click', () => { SEE.UI.closeAllModals(); setTimeout(() => Tours.start(app, t.id), 60); });
+      box.appendChild(row);
+    }
+    SEE.UI.modal({ title: 'Guided tours', wide: true, body: box, buttons: [{ label: 'Close', value: true }] });
+  };
+
+  Tours.start = async function (app, id) {
+    const t = Tours.list.find((x) => x.id === id);
+    if (!t) { SEE.UI.toast('No such tour: ' + id, 'err'); return; }
+    Tours.stop();
+    const state = { app, i: 0, tour: t };
+    Tours.current = state;
+    if (t.setup) await t.setup(app);
+    Tours.show(state);
+  };
+  Tours.stop = function () {
+    if (Tours.current) { if (Tours.current.pop) Tours.current.pop.remove(); if (Tours.current.ring) Tours.current.ring.remove(); }
+    Tours.current = null;
+  };
+  Tours.show = async function (state) {
+    const { app, tour } = state;
+    const step = tour.steps[state.i];
+    if (!step) { Tours.stop(); return; }
+    if (step.before) { try { await step.before(app); } catch (e) { /* keep going */ } }
+    await new Promise((r) => setTimeout(r, step.wait || 120));
+    if (state.pop) state.pop.remove();
+    if (state.ring) state.ring.remove();
+    const target = step.target ? (typeof step.target === 'function' ? step.target(app) : document.querySelector(step.target)) : null;
+    const pop = h('div.tour-pop', { role: 'dialog', 'aria-label': tour.title, id: 'tourPop' });
+    const close = h('button.ibtn', { type: 'button', 'aria-label': 'End the tour', title: 'End the tour', style: { color: 'inherit' } }, '×');
+    close.addEventListener('click', () => Tours.stop());
+    const back = h('button.btn', { type: 'button', disabled: state.i === 0, id: 'tourBack' }, 'Back');
+    const next = h('button.btn.primary', { type: 'button', id: 'tourNext' }, state.i === tour.steps.length - 1 ? 'Done' : 'Next');
+    back.addEventListener('click', () => { state.i = Math.max(0, state.i - 1); Tours.show(state); });
+    next.addEventListener('click', () => { if (state.i === tour.steps.length - 1) { Tours.stop(); if (tour.done) tour.done(app); return; } state.i++; Tours.show(state); });
+    const body = h('div.tb');
+    body.innerHTML = step.html;
+    pop.append(h('div.th', h('span', step.title || tour.title), close), body, h('div.tf', h('span.count', (state.i + 1) + ' of ' + tour.steps.length), back, next));
+    document.body.appendChild(pop);
+    state.pop = pop;
+    const W = window.innerWidth, H = window.innerHeight;
+    if (W < 600) {
+      // a phone: the card spans the width, above or below the highlighted part
+      pop.style.width = (W - 16) + 'px';
+      pop.style.left = '8px';
+    }
+    if (target && target.getBoundingClientRect().width) {
+      const r = target.getBoundingClientRect();
+      const ring = h('div.tour-ring');
+      Object.assign(ring.style, { left: (r.left - 4) + 'px', top: (r.top - 4) + 'px', width: (r.width + 8) + 'px', height: (r.height + 8) + 'px' });
+      document.body.appendChild(ring);
+      state.ring = ring;
+      const pw = pop.offsetWidth, ph = pop.offsetHeight;
+      if (W < 600) {
+        const below = r.bottom + 10, above = r.top - ph - 10;
+        let y = below + ph <= H - 8 ? below : above >= 8 ? above : H - ph - 8;
+        pop.style.top = Math.max(8, y) + 'px';
+        next.focus();
+        return;
+      }
+      let x = r.right + 14, y = r.top;
+      if (x + pw > W - 8) x = r.left - pw - 14;
+      if (x < 8) { x = Math.min(Math.max(8, r.left), W - pw - 8); y = r.bottom + 12; if (y + ph > H - 8) y = Math.max(8, r.top - ph - 12); }
+      y = Math.min(Math.max(8, y), H - ph - 8);
+      x = Math.min(Math.max(8, x), W - pw - 8);
+      pop.style.left = x + 'px'; pop.style.top = y + 'px';
+    } else {
+      pop.style.left = Math.max(8, (W - pop.offsetWidth) / 2) + 'px';
+      pop.style.top = Math.max(8, (H - pop.offsetHeight) / 3) + 'px';
+    }
+    next.focus();
+  };
+})(SEE);
+
+// ==== ide/tours/tours.js ====
+// The guided tours. Each step points at one part of the studio; some steps also drive the
+// debugger so the memory picture changes while the tour explains it.
+(function (SEE) {
+  'use strict';
+  const T = SEE.Tours;
+  const until = (cond, ms) => new Promise((resolve) => { const t0 = Date.now(); const tick = () => { if (cond() || Date.now() - t0 > (ms || 8000)) resolve(); else setTimeout(tick, 30); }; tick(); });
+  const paused = (app) => until(() => app.vm && !app.running && app.vm.state !== 'running');
+  /** Open a fresh copy of the starter program, so every tour starts from the same place */
+  const fresh = (app, name) => {
+    const dir = '/tmp/tour-' + name;
+    app.vfs.mkdir(dir, { parents: true, exist: true, trusted: true });
+    app.vfs.writeText(dir + '/hello.c', SEE.Samples.starter(), { trusted: true });
+    const d = app.docByPath(dir + '/hello.c');
+    if (d) { d.editor.setValue(SEE.Samples.starter()); d.savedText = d.editor.getValue(); d.dirty = false; }
+    app.stop();
+    app.openFile(dir + '/hello.c');
+    if (app.isPhone()) app.setView('code');
+  };
+  const view = (app, v) => { if (app.isPhone()) app.setView(v); };
+
+  T.add({
+    id: 'welcome', title: 'A first look', blurb: 'Build, run, step through a program and read the memory picture.',
+    setup: (app) => fresh(app, 'welcome'),
+    steps: [
+      { target: '.editors', title: 'The editor', html: '<p>This is <code>hello.c</code>, a small program. Every <b>.c</b> file in a folder is built together into one program, so a folder is a project.</p><p>The code is C89, the C of the classic books: comments in <code>/* */</code>, declarations at the top of a block.</p>', before: (app) => view(app, 'code') },
+      { target: '#tbRun', title: 'Run', html: '<p><b>Run</b> (Ctrl+F5) builds the program and runs it at full speed. Its output appears in the terminal below.</p>', before: async (app) => { app.run(); await until(() => app.vm && app.vm.state === 'exited'); } },
+      { target: '#termOut', title: 'The terminal', html: '<p>The program printed its line here and ended with status 0. If it reads input with <code>scanf</code> or <code>getchar</code>, you type it on the line at the bottom.</p>', before: (app) => { view(app, 'run'); app.showBottom('term'); } },
+      { target: '#tbDebug', title: 'Debug', html: '<p><b>Debug</b> (F5) builds it and stops before the first line of <code>main</code> runs. The yellow line in the editor is the next one to run.</p>', before: async (app) => { app.startDebug('start'); await paused(app); view(app, 'code'); } },
+      { target: '#right', title: 'The memory picture', html: '<p>Here is the program\'s memory. Left: the <b>stack</b>, with a <b>frame</b> for <code>main</code> holding its variables at their real addresses (near <code>0xbfffff70</code>).</p><p>Right: the heap, the globals, the read-only data (string literals) and the code.</p><p>Red values have not been set yet.</p>', before: (app) => { app.showRight('memory'); view(app, 'memory'); } },
+      { target: '#tbOver', title: 'Step over', html: '<p><b>Over</b> (F10) runs one line. Watch <code>x</code> become 7 and turn yellow: yellow means it just changed.</p>', before: async (app) => { app.step('over'); await paused(app); } },
+      { target: '#tbInto', title: 'Step into', html: '<p><b>Into</b> (F11) follows a call. The program is now inside <code>square</code>, and a new frame sits below <code>main</code>\'s on the stack, with the parameter <code>n</code>, the <b>return address</b> and the caller\'s saved frame pointer.</p>', before: async (app) => { app.step('into'); await paused(app); view(app, 'memory'); } },
+      { target: '#tbOut', title: 'Step out', html: '<p><b>Out</b> (Shift+F11) finishes the function. The frame of <code>square</code> is gone and the box at the top says what it returned.</p>', before: async (app) => { app.step('out'); await paused(app); } },
+      { target: '#right', title: 'Pointers and the heap', html: '<p>A few more steps: <code>numbers</code> holds the address of a block of three ints on the heap. The blue arrow goes from the pointer to the block; <code>who</code> points at the string "world" in read-only data.</p><p>Click any value to change it. Point at a row to see its type, size and which line last wrote it.</p>', before: async (app) => { for (let k = 0; k < 6; k++) { app.step('over'); await paused(app); } view(app, 'memory'); } },
+      { target: '#tbBack', title: 'Step back', html: '<p><b>Back</b> (F8) undoes a line: memory, output and all. Use it to see exactly what a line did, or to walk back from a crash to its cause.</p>', before: async (app) => { app.stepBack(); await paused(app); } },
+      { target: '#menuLearn', title: 'Learn more', html: '<p>The <b>Learn</b> menu has the lessons (from <code>printf</code> to pointers to pointers, each walked through in the debugger), more tours and a library of hundreds of commented programs. <b>Help</b> has the C reference.</p>', before: (app) => { if (app.isPhone()) app.setView('code'); } },
+    ],
+    done: (app) => app.stop(),
+  });
+
+  T.add({
+    id: 'debugger', title: 'The debugger in depth', blurb: 'Breakpoints, conditions, watches, watchpoints, the call stack and changing values.',
+    setup: (app) => fresh(app, 'debugger'),
+    steps: [
+      { target: (app) => app.active && app.active.editor.gutter, title: 'Breakpoints', html: '<p>Click left of a line number to set a <b>breakpoint</b> (F9 does it on the cursor line). Debug stops there. Right-click it to make it stop only when a condition is true, like <code>i == 5</code>.</p>', before: (app) => { view(app, 'code'); app.toggleBreakpoint(app.active.path, 9); } },
+      { target: '#tbDebug', title: 'Continue to it', html: '<p>F5 starts the program and runs it to the breakpoint inside <code>square</code>.</p>', before: async (app) => { app.startDebug('run'); await paused(app); } },
+      { target: '#tab-vars', title: 'Variables and the call stack', html: '<p>The <b>Variables</b> panel lists the frames on the stack, newest first. Click <code>main</code> to look at its variables while <code>square</code> is running; the editor marks where <code>main</code> is waiting.</p>', before: (app) => { app.showRight('vars'); app.selectFrame(1); view(app, 'memory'); } },
+      { target: '#tab-watch', title: 'Watch', html: '<p>The <b>Watch</b> panel keeps C expressions, worked out again at every stop: <code>x * 2</code>, <code>numbers[1]</code>, <code>p-&gt;next</code>. The eye button makes a <b>watchpoint</b>: the program stops whenever that memory changes, wherever the change comes from.</p>', before: (app) => { app.selectFrame(0); app.watchPanel.add('n * 10'); app.showRight('watch'); } },
+      { target: '#tab-bytes', title: 'Bytes', html: '<p><b>Bytes</b> shows raw memory. Each byte is coloured by what it is, and pointing at one says which variable it belongs to and which line last wrote it.</p>', before: (app) => { app.showRight('bytes'); app.bytesPanel.goTo('&n'); } },
+      { target: '#tab-bps', title: 'All the breakpoints', html: '<p>The <b>Breakpoints</b> panel lists them all, with their conditions. Uncheck one to keep it but skip it.</p>', before: (app) => { app.showRight('bps'); } },
+      { target: '.editors', title: 'Hover', html: '<p>While the program is paused, point at a variable in the editor (or a chain like <code>p-&gt;next-&gt;v</code>). A card shows its value, type and address, and you can change it right there.</p>', before: (app) => { app.clearBreakpoints(); app.showRight('memory'); view(app, 'code'); } },
+    ],
+    done: (app) => { app.stop(); app.clearBreakpoints(); },
+  });
+
+  T.add({
+    id: 'files', title: 'Files, projects and sharing', blurb: 'Projects in folders, headers, the examples, sharing a link, and folders from your computer.',
+    steps: [
+      { target: '#side', title: 'Files', html: '<p>Your files live in this browser, under <code>/home/user</code>. A <b>project</b> is a folder: every .c file in it is compiled, and they are linked together. Headers (.h) next to them are found by <code>#include "name.h"</code>.</p>', before: (app) => view(app, 'files') },
+      { target: '#side', title: 'Originals and system files', html: '<p><code>/examples</code>, <code>/library</code> and <code>/lessons</code> hold originals: change one and saving makes a copy of your own. <code>/usr/include</code> has the real C89 headers this compiler uses; open <code>stdio.h</code> to read it.</p>' },
+      { target: '#tbShare', title: 'Share', html: '<p><b>Share</b> packs the whole project into a link. Everything is inside the link itself; nothing is uploaded. Whoever opens it gets their own copy.</p>' },
+      { target: '#sideTools', title: 'Bring files in', html: '<p>These buttons make a new file or folder, bring files from your computer, or use a whole folder from your computer (in Chrome and Edge), with a choice of read only, ask first, or let programs write there.</p>' },
+    ],
+  });
+
+  T.add({
+    id: 'memory', title: 'Reading the memory picture', blurb: 'Stack, heap, globals, read-only data and code: what each part shows.',
+    setup: (app) => fresh(app, 'memory'),
+    steps: [
+      { target: '#right', title: 'The address space', html: '<p>A 32-bit program sees one long row of bytes, from address <code>0x00000000</code> to <code>0xffffffff</code>. See lays it out like a real Unix machine: code at <code>0x08048000</code>, then read-only data, data, bss and the heap above it, and the stack at the top, below <code>0xc0000000</code>, growing down.</p>', before: async (app) => { app.startDebug('start'); await paused(app); app.showRight('memory'); view(app, 'memory'); } },
+      { target: '.seg.stack', title: 'The stack', html: '<p>Each call gets a <b>frame</b>. The newest frame is at the bottom (the stack grows down). In a frame: the arguments (higher addresses), the <b>return address</b> (where to go back to), the caller\'s <b>saved frame pointer</b>, then the local variables.</p>' },
+      { target: '.seg.heap', title: 'The heap', html: '<p>Every <code>malloc</code> makes a numbered block here, labelled with the line that made it. A freed block is hatched; a block nobody freed is reported as a leak when the program ends.</p>', before: async (app) => { for (let k = 0; k < 5; k++) { app.step('over'); await paused(app); } } },
+      { target: '.seg.data', title: 'Globals', html: '<p>Global variables and <code>static</code> locals live here for the whole run: in <b>.data</b> when they start with a value, in <b>.bss</b> (all zero) when they do not.</p>' },
+      { target: '.seg.ro', title: 'Read-only data', html: '<p>String literals and <code>const</code> globals. Writing to them is a crash. Note how <code>char greeting[] = "hello"</code> copied its text onto the stack instead.</p>' },
+      { target: '.seg.text', title: 'Code', html: '<p>The functions, at their addresses. A function pointer holds one of these addresses; a return address points into the middle of one.</p>' },
+      { target: '.mem-bar', title: 'Options', html: '<p>Show or hide the arrows, the addresses and the types, and the C library\'s own frames and globals (like the FILE table behind <code>stdin</code> and <code>stdout</code>).</p>', before: () => {} },
+    ],
+    done: (app) => app.stop(),
+  });
+})(SEE);
+
 // ==== ide/app.js ====
 // The studio: files and editors, building, running and debugging, and the panels around them.
 (function (SEE) {
