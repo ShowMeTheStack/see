@@ -154,7 +154,7 @@ export default function (t) {
   t.test('About the author links open in a new tab', async (p) => {
     await open(p, 'SEE.authorDialog()');
     const links = await p.ev("[...document.querySelectorAll('.author a')].map(a => ({ t: a.innerText, h: a.getAttribute('href'), tg: a.target, rel: a.rel }))");
-    p.assert.equal(links.length, 11);
+    p.assert.equal(links.length, 12);
     for (const l of links) { p.assert.equal(l.tg, '_blank', l.t); p.assert.equal(l.rel, 'noopener', l.t); p.assert.match(l.h, /^(https:\/\/|mailto:)/, l.t); }
     p.assert.ok(links.some((l) => l.h === 'mailto:mail@jyotiprakash.org'));
     p.assert.ok(links.some((l) => l.h === 'https://github.com/ShowMeTheStack'));
